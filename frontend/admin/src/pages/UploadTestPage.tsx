@@ -103,6 +103,11 @@ export function UploadTestPage() {
             {saving ? "Сохраняем..." : "Сохранить тест"}
           </button>
         </div>
+        {!canSave && !saving && (
+          <p className="mt-2 text-xs text-slate-400 dark:text-slate-500">
+            {preview ? "Исправьте ошибки выше, затем нажмите «Проверить» ещё раз." : "Сначала нажмите «Проверить» — кнопка сохранения активируется после успешной проверки."}
+          </p>
+        )}
 
         {error && <p className="mt-3 text-sm text-red-600 dark:text-red-400">{error}</p>}
 
