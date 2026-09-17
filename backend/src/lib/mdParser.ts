@@ -6,6 +6,9 @@
 // description: optional free text
 // pass_percent: 70
 // language: ru        (optional, free text — "ru"/"uz"/"en"/..., defaults to "ru")
+// group: some-slug    (optional — same value on multiple tests links them as
+//                       language variants of one exam; student sees a single
+//                       card with a language switcher instead of separate tests)
 // ---
 //
 // ## Q1 [Section Name]
@@ -39,6 +42,7 @@ export interface ParsedTest {
   description: string | null;
   passPercent: number;
   language: string;
+  groupKey: string | null;
   questions: ParsedQuestion[];
 }
 
@@ -94,6 +98,7 @@ export function parseTestMarkdown(source: string): ParseResult {
 
   const description = frontMatter.description?.trim() || null;
   const language = frontMatter.language?.trim() || "ru";
+  const groupKey = frontMatter.group?.trim() || null;
 
   const lines = body.split("\n");
   const questionBlocks: { headingLine: number; section: string; lines: string[] }[] = [];
@@ -188,6 +193,7 @@ export function parseTestMarkdown(source: string): ParseResult {
       description,
       passPercent,
       language,
+      groupKey,
       questions,
     },
     issues: [],

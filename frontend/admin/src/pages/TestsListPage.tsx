@@ -74,6 +74,7 @@ export function TestsListPage() {
                   <span>Проходной балл: {test.passPercent}%</span>
                   <span>{test._count.attempts} попыток</span>
                   <span>Автор: {test.createdBy.fullName}</span>
+                  {test.groupKey && <span>Группа: {test.groupKey}</span>}
                 </div>
               </div>
               <span

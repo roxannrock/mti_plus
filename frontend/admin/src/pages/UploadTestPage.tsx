@@ -126,6 +126,7 @@ export function UploadTestPage() {
             <p className="text-sm font-medium text-emerald-700 dark:text-emerald-300">
               ✓ {preview.test.title} [{preview.test.language}] — {preview.test.questions.length} вопросов,
               проходной балл {preview.test.passPercent}%
+              {preview.test.groupKey && <> · группа: {preview.test.groupKey}</>}
             </p>
             <ul className="mt-2 max-h-64 space-y-1 overflow-y-auto text-xs text-emerald-900 dark:text-emerald-200">
               {preview.test.questions.map((q) => (

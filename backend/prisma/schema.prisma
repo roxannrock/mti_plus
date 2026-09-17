@@ -37,6 +37,7 @@ model Test {
   description   String?
   passPercent   Float // e.g. 70 = must score >= 70% to pass
   language      String   @default("ru") // free text (e.g. "ru", "uz", "en") — set via MD front matter, not a hardcoded enum
+  groupKey      String? // links language variants of the same exam together, set via MD front matter `group:`
   mdSource      String   @db.Text // original MD uploaded by admin, kept for audit/re-edit
   isPublished   Boolean  @default(false)
   createdById   String
@@ -47,6 +48,7 @@ model Test {
   questions Question[]
   attempts  Attempt[]
 
+  @@index([groupKey])
   @@map("tests")
 }
 

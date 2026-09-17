@@ -39,3 +39,12 @@ language: ru
 6. Количество вопросов: 40.
 
 Материал для генерации вопросов приложен ниже.`;
+
+// If the same exam needs to exist in ru/uz/en: run this prompt three times
+// (only "language" changes each time), then before pasting each result into
+// the MD box on the right, manually add one line to its front matter:
+//   group: <any-shared-slug>
+// (the same slug on all three, nothing else). That links them — students
+// see one card with a language switcher instead of three separate tests.
+// Left out by default so a forgotten/unedited prompt never groups unrelated
+// tests together.
