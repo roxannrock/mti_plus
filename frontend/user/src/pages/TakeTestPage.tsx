@@ -25,7 +25,11 @@ export function TakeTestPage() {
       .catch((err) => setError(apiErrorMessage(err, "Не удалось начать тест.")));
   }, [testId]);
 
-  function toggleOption(questionId: string, key: string) {
+  function selectSingle(questionId: string, key: string) {
+    setAnswers((prev) => ({ ...prev, [questionId]: [key] }));
+  }
+
+  function toggleMultiple(questionId: string, key: string) {
     setAnswers((prev) => {
       const current = prev[questionId] ?? [];
       const next = current.includes(key) ? current.filter((k) => k !== key) : [...current, key];
@@ -73,8 +77,11 @@ export function TakeTestPage() {
             <div className="mb-1 text-xs uppercase tracking-wide text-slate-400">
               Q{q.order} · {q.section}
             </div>
-            <p className="mb-3 font-medium text-slate-900">{q.prompt}</p>
-            <div className="space-y-2">
+            <p className="mb-1 font-medium text-slate-900">{q.prompt}</p>
+            {q.isMultiple && (
+              <p className="mb-2 text-xs text-indigo-600">Выберите все подходящие варианты</p>
+            )}
+            <div className="mt-2 space-y-2">
               {q.options.map((opt) => {
                 const selected = (answers[q.id] ?? []).includes(opt.key);
                 return (
@@ -85,9 +92,12 @@ export function TakeTestPage() {
                     }`}
                   >
                     <input
-                      type="checkbox"
+                      type={q.isMultiple ? "checkbox" : "radio"}
+                      name={q.isMultiple ? undefined : q.id}
                       checked={selected}
-                      onChange={() => toggleOption(q.id, opt.key)}
+                      onChange={() =>
+                        q.isMultiple ? toggleMultiple(q.id, opt.key) : selectSingle(q.id, opt.key)
+                      }
                       className="accent-indigo-600"
                     />
                     <span>

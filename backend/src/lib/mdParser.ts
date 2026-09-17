@@ -76,7 +76,7 @@ export function parseTestMarkdown(source: string): ParseResult {
     return { test: null, issues };
   }
 
-  const frontMatter = parseFrontMatter(frontMatterMatch[1]);
+  const frontMatter = parseFrontMatter(frontMatterMatch[1] ?? "");
   const body = normalized.slice(frontMatterMatch[0].length);
 
   const title = frontMatter.title?.trim();
@@ -103,7 +103,7 @@ export function parseTestMarkdown(source: string): ParseResult {
     const headingMatch = line.match(headingPattern);
     if (headingMatch) {
       if (current) questionBlocks.push(current);
-      current = { headingLine: lineNumber, section: headingMatch[1].trim(), lines: [] };
+      current = { headingLine: lineNumber, section: (headingMatch[1] ?? "").trim(), lines: [] };
       return;
     }
     if (current) current.lines.push(line);
@@ -145,8 +145,8 @@ export function parseTestMarkdown(source: string): ParseResult {
     optionLines.forEach((line, optIdx) => {
       const match = line.match(/^\s*-\s*\[([ xX])\]\s*(.+)$/);
       if (!match) return;
-      const isCorrect = match[1].toLowerCase() === "x";
-      const text = match[2].trim();
+      const isCorrect = (match[1] ?? "").toLowerCase() === "x";
+      const text = (match[2] ?? "").trim();
       const key = OPTION_KEYS[optIdx] ?? String(optIdx + 1);
       options.push({ key, text });
       if (isCorrect) correctKeys.push(key);

@@ -1,9 +1,11 @@
 import { Router } from "express";
 import { z } from "zod";
 import { prisma } from "../db/prisma";
+import type { Prisma } from "../generated/prisma/client";
 import { asyncHandler, HttpError } from "../middleware/errorHandler";
 import { requireAuth, requireRole } from "../middleware/auth";
 import { parseTestMarkdown } from "../lib/mdParser";
+import { requireParam } from "../lib/params";
 
 export const testsRouter = Router();
 
@@ -48,8 +50,8 @@ testsRouter.post(
             order: q.order,
             section: q.section,
             prompt: q.prompt,
-            options: q.options,
-            correctKeys: q.correctKeys,
+            options: q.options as unknown as Prisma.InputJsonValue,
+            correctKeys: q.correctKeys as unknown as Prisma.InputJsonValue,
           })),
         },
       },
@@ -82,7 +84,7 @@ testsRouter.get(
   requireAuth,
   asyncHandler(async (req, res) => {
     const test = await prisma.test.findUnique({
-      where: { id: req.params.id },
+      where: { id: requireParam(req, "id") },
       include: { questions: { orderBy: { order: "asc" } } },
     });
     if (!test) throw new HttpError(404, "Тест не найден.");
@@ -95,10 +97,15 @@ testsRouter.get(
       return;
     }
 
-    // Students never receive correct answers up front.
+    // Students never receive correct answers up front — only whether the
+    // question expects one or several selections, so the UI can render
+    // radio buttons vs checkboxes without leaking which option is correct.
     res.json({
       ...test,
-      questions: test.questions.map(({ correctKeys: _correctKeys, ...q }) => q),
+      questions: test.questions.map(({ correctKeys, ...q }) => ({
+        ...q,
+        isMultiple: Array.isArray(correctKeys) && correctKeys.length > 1,
+      })),
     });
   }),
 );
@@ -110,7 +117,7 @@ testsRouter.patch(
   asyncHandler(async (req, res) => {
     const { isPublished } = z.object({ isPublished: z.boolean() }).parse(req.body);
     const test = await prisma.test.update({
-      where: { id: req.params.id },
+      where: { id: requireParam(req, "id") },
       data: { isPublished },
     });
     res.json(test);
@@ -123,7 +130,7 @@ testsRouter.get(
   requireRole("ADMIN"),
   asyncHandler(async (req, res) => {
     const attempts = await prisma.attempt.findMany({
-      where: { testId: req.params.id, finishedAt: { not: null } },
+      where: { testId: requireParam(req, "id"), finishedAt: { not: null } },
       orderBy: { finishedAt: "desc" },
       include: { student: { select: { id: true, fullName: true, email: true } } },
     });
@@ -137,7 +144,7 @@ testsRouter.get(
   requireRole("ADMIN"),
   asyncHandler(async (req, res) => {
     const attempt = await prisma.attempt.findFirst({
-      where: { id: req.params.attemptId, testId: req.params.id },
+      where: { id: requireParam(req, "attemptId"), testId: requireParam(req, "id") },
       include: {
         student: { select: { id: true, fullName: true, email: true } },
         answers: { include: { question: true } },

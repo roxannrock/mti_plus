@@ -36,9 +36,10 @@ export function scoreAttempt(questions: ScoredQuestion[], passPercent: number): 
     const isCorrect = sameKeys(q.correctKeys, q.selectedKeys);
     if (isCorrect) correctCount += 1;
 
-    if (!sectionStats[q.section]) sectionStats[q.section] = { correct: 0, total: 0 };
-    sectionStats[q.section].total += 1;
-    if (isCorrect) sectionStats[q.section].correct += 1;
+    const stat = sectionStats[q.section] ?? { correct: 0, total: 0 };
+    stat.total += 1;
+    if (isCorrect) stat.correct += 1;
+    sectionStats[q.section] = stat;
 
     perQuestion.push({ questionId: q.questionId, isCorrect });
   }

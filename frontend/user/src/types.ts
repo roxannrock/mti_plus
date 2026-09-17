@@ -16,6 +16,7 @@ export interface Question {
   section: string;
   prompt: string;
   options: Option[];
+  isMultiple: boolean;
 }
 
 export interface TestSummary {

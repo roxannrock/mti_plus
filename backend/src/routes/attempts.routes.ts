@@ -1,9 +1,11 @@
 import { Router } from "express";
 import { z } from "zod";
 import { prisma } from "../db/prisma";
+import type { Prisma } from "../generated/prisma/client";
 import { asyncHandler, HttpError } from "../middleware/errorHandler";
 import { requireAuth, requireRole } from "../middleware/auth";
 import { scoreAttempt } from "../lib/scoring";
+import { requireParam } from "../lib/params";
 
 export const attemptsRouter = Router();
 
@@ -41,7 +43,7 @@ attemptsRouter.post(
     const { answers } = submitSchema.parse(req.body);
 
     const attempt = await prisma.attempt.findUnique({
-      where: { id: req.params.id },
+      where: { id: requireParam(req, "id") },
       include: { test: { include: { questions: true } } },
     });
     if (!attempt || attempt.studentId !== req.auth!.userId) {
@@ -80,7 +82,7 @@ attemptsRouter.post(
           correctCount: scored.correctCount,
           scorePercent: scored.scorePercent,
           passed: scored.passed,
-          sectionStats: scored.sectionStats,
+          sectionStats: scored.sectionStats as unknown as Prisma.InputJsonValue,
         },
       }),
     ]);
@@ -114,7 +116,7 @@ attemptsRouter.get(
   requireAuth,
   asyncHandler(async (req, res) => {
     const attempt = await prisma.attempt.findUnique({
-      where: { id: req.params.id },
+      where: { id: requireParam(req, "id") },
       include: {
         test: { select: { title: true, passPercent: true } },
         answers: { include: { question: true } },
