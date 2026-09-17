@@ -36,15 +36,13 @@ testsRouter.post(
       throw new HttpError(400, "Markdown не прошёл валидацию, тест не сохранён.");
     }
 
-    const { title, description, passPercent, language, groupKey, questions } = result.test;
+    const { title, description, passPercent, questions } = result.test;
 
     const test = await prisma.test.create({
       data: {
         title,
         description,
         passPercent,
-        language,
-        groupKey,
         mdSource: markdown,
         createdById: req.auth!.userId,
         questions: {
@@ -109,6 +107,30 @@ testsRouter.get(
         isMultiple: Array.isArray(correctKeys) && correctKeys.length > 1,
       })),
     });
+  }),
+);
+
+testsRouter.patch(
+  "/:id",
+  requireAuth,
+  requireRole("ADMIN"),
+  asyncHandler(async (req, res) => {
+    const { title } = z.object({ title: z.string().trim().min(1) }).parse(req.body);
+    const test = await prisma.test.update({
+      where: { id: requireParam(req, "id") },
+      data: { title },
+    });
+    res.json(test);
+  }),
+);
+
+testsRouter.delete(
+  "/:id",
+  requireAuth,
+  requireRole("ADMIN"),
+  asyncHandler(async (req, res) => {
+    await prisma.test.delete({ where: { id: requireParam(req, "id") } });
+    res.status(204).send();
   }),
 );
 

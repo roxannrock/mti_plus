@@ -36,8 +36,6 @@ model Test {
   title         String
   description   String?
   passPercent   Float // e.g. 70 = must score >= 70% to pass
-  language      String   @default("ru") // free text (e.g. "ru", "uz", "en") — set via MD front matter, not a hardcoded enum
-  groupKey      String? // links language variants of the same exam together, set via MD front matter `group:`
   mdSource      String   @db.Text // original MD uploaded by admin, kept for audit/re-edit
   isPublished   Boolean  @default(false)
   createdById   String
@@ -48,7 +46,6 @@ model Test {
   questions Question[]
   attempts  Attempt[]
 
-  @@index([groupKey])
   @@map("tests")
 }
 
@@ -71,7 +68,7 @@ model Question {
 model Attempt {
   id           String    @id @default(cuid())
   testId       String
-  test         Test      @relation(fields: [testId], references: [id])
+  test         Test      @relation(fields: [testId], references: [id], onDelete: Cascade)
   studentId    String
   student      User      @relation(fields: [studentId], references: [id])
   startedAt    DateTime  @default(now())
@@ -94,7 +91,7 @@ model AttemptAnswer {
   attemptId   String
   attempt     Attempt  @relation(fields: [attemptId], references: [id], onDelete: Cascade)
   questionId  String
-  question    Question @relation(fields: [questionId], references: [id])
+  question    Question @relation(fields: [questionId], references: [id], onDelete: Cascade)
   selectedKeys Json // keys the student picked, e.g. ["B"]
   isCorrect   Boolean
 
