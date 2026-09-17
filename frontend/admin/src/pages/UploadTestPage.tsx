@@ -124,8 +124,8 @@ export function UploadTestPage() {
         {preview?.test && preview.issues.length === 0 && (
           <div className="mt-4 rounded-md border border-emerald-200 bg-emerald-50 p-3 dark:border-emerald-900/50 dark:bg-emerald-500/10">
             <p className="text-sm font-medium text-emerald-700 dark:text-emerald-300">
-              ✓ {preview.test.title} — {preview.test.questions.length} вопросов, проходной балл{" "}
-              {preview.test.passPercent}%
+              ✓ {preview.test.title} [{preview.test.language}] — {preview.test.questions.length} вопросов,
+              проходной балл {preview.test.passPercent}%
             </p>
             <ul className="mt-2 max-h-64 space-y-1 overflow-y-auto text-xs text-emerald-900 dark:text-emerald-200">
               {preview.test.questions.map((q) => (

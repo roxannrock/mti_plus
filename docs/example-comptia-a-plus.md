@@ -2,6 +2,7 @@
 title: CompTIA A+ Core 1 (220-1201) — Практический тест
 description: 90 вопросов по мобильным устройствам, сетям, железу, виртуализации и troubleshooting
 pass_percent: 70
+language: ru
 ---
 
 ## Q1 [Mobile Devices]

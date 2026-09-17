@@ -5,6 +5,7 @@
 // title: Test title
 // description: optional free text
 // pass_percent: 70
+// language: ru        (optional, free text — "ru"/"uz"/"en"/..., defaults to "ru")
 // ---
 //
 // ## Q1 [Section Name]
@@ -37,6 +38,7 @@ export interface ParsedTest {
   title: string;
   description: string | null;
   passPercent: number;
+  language: string;
   questions: ParsedQuestion[];
 }
 
@@ -91,6 +93,7 @@ export function parseTestMarkdown(source: string): ParseResult {
   }
 
   const description = frontMatter.description?.trim() || null;
+  const language = frontMatter.language?.trim() || "ru";
 
   const lines = body.split("\n");
   const questionBlocks: { headingLine: number; section: string; lines: string[] }[] = [];
@@ -184,6 +187,7 @@ export function parseTestMarkdown(source: string): ParseResult {
       title,
       description,
       passPercent,
+      language,
       questions,
     },
     issues: [],

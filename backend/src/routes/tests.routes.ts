@@ -36,13 +36,14 @@ testsRouter.post(
       throw new HttpError(400, "Markdown не прошёл валидацию, тест не сохранён.");
     }
 
-    const { title, description, passPercent, questions } = result.test;
+    const { title, description, passPercent, language, questions } = result.test;
 
     const test = await prisma.test.create({
       data: {
         title,
         description,
         passPercent,
+        language,
         mdSource: markdown,
         createdById: req.auth!.userId,
         questions: {
