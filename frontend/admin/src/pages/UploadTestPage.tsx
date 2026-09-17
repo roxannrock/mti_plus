@@ -8,6 +8,7 @@ import type { ParsePreviewResult } from "../types";
 export function UploadTestPage() {
   const navigate = useNavigate();
   const [prompt, setPrompt] = useState(DEFAULT_AI_PROMPT);
+  const [promptUnlocked, setPromptUnlocked] = useState(false);
   const [copied, setCopied] = useState(false);
   const [markdown, setMarkdown] = useState("");
   const [preview, setPreview] = useState<ParsePreviewResult | null>(null);
@@ -53,23 +54,54 @@ export function UploadTestPage() {
   return (
     <div className="grid gap-8 lg:grid-cols-2">
       <section className="rounded-lg border border-slate-200 bg-white p-6 shadow-sm dark:border-slate-800 dark:bg-slate-900">
-        <h2 className="mb-1 text-lg font-semibold text-slate-900 dark:text-slate-100">1. Промпт для AI</h2>
+        <div className="mb-1 flex items-center justify-between gap-3">
+          <h2 className="text-lg font-semibold text-slate-900 dark:text-slate-100">1. Промпт для AI</h2>
+          {promptUnlocked ? (
+            <span className="whitespace-nowrap rounded-full bg-amber-50 px-2.5 py-1 text-xs font-medium text-amber-700 dark:bg-amber-500/10 dark:text-amber-300">
+              Режим редактирования
+            </span>
+          ) : (
+            <button
+              onClick={() => setPromptUnlocked(true)}
+              title="Изменить промпт"
+              className="whitespace-nowrap text-xs text-slate-400 hover:text-indigo-600 dark:text-slate-500 dark:hover:text-indigo-400"
+            >
+              ✎ Изменить
+            </button>
+          )}
+        </div>
         <p className="mb-3 text-sm text-slate-500 dark:text-slate-400">
-          Отредактируйте при необходимости, скопируйте, вставьте в ChatGPT/Claude вместе с материалом
-          (лекция, конспект и т.д.), заберите готовый MD-ответ обратно сюда.
+          {promptUnlocked
+            ? "Отредактируйте текст, затем нажмите «Готово». Изменения останутся только в этой сессии."
+            : "Скопируйте и вставьте в ChatGPT/Claude вместе с материалом (лекция, конспект и т.д.), заберите готовый MD-ответ обратно сюда. Чтобы изменить сам промпт, нажмите «Изменить»."}
         </p>
         <textarea
           value={prompt}
           onChange={(e) => setPrompt(e.target.value)}
+          readOnly={!promptUnlocked}
           rows={18}
-          className="w-full rounded-md border border-slate-300 bg-white p-3 font-mono text-xs text-slate-900 outline-none focus:border-indigo-500 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100"
+          className={`w-full rounded-md border p-3 font-mono text-xs outline-none ${
+            promptUnlocked
+              ? "border-slate-300 bg-white text-slate-900 focus:border-indigo-500 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100"
+              : "cursor-default border-slate-200 bg-slate-50 text-slate-600 dark:border-slate-800 dark:bg-slate-950/40 dark:text-slate-400"
+          }`}
         />
-        <button
-          onClick={copyPrompt}
-          className="mt-3 rounded-md border border-slate-300 px-3 py-1.5 text-sm font-medium text-slate-700 hover:bg-slate-50 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800"
-        >
-          {copied ? "Скопировано ✓" : "Скопировать промпт"}
-        </button>
+        <div className="mt-3 flex gap-3">
+          <button
+            onClick={copyPrompt}
+            className="rounded-md border border-slate-300 px-3 py-1.5 text-sm font-medium text-slate-700 hover:bg-slate-50 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800"
+          >
+            {copied ? "Скопировано ✓" : "Скопировать промпт"}
+          </button>
+          {promptUnlocked && (
+            <button
+              onClick={() => setPromptUnlocked(false)}
+              className="rounded-md bg-indigo-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-indigo-700 dark:bg-indigo-500 dark:hover:bg-indigo-400"
+            >
+              Готово
+            </button>
+          )}
+        </div>
       </section>
 
       <section className="rounded-lg border border-slate-200 bg-white p-6 shadow-sm dark:border-slate-800 dark:bg-slate-900">
@@ -129,9 +161,8 @@ export function UploadTestPage() {
         {preview?.test && preview.issues.length === 0 && (
           <div className="mt-4 rounded-md border border-emerald-200 bg-emerald-50 p-3 dark:border-emerald-900/50 dark:bg-emerald-500/10">
             <p className="text-sm font-medium text-emerald-700 dark:text-emerald-300">
-              ✓ {preview.test.title} [{preview.test.language}] — {preview.test.questions.length} вопросов,
-              проходной балл {preview.test.passPercent}%
-              {preview.test.groupKey && <> · группа: {preview.test.groupKey}</>}
+              ✓ {preview.test.title} — {preview.test.questions.length} вопросов, проходной балл{" "}
+              {preview.test.passPercent}%
             </p>
             <ul className="mt-2 max-h-64 space-y-1 overflow-y-auto text-xs text-emerald-900 dark:text-emerald-200">
               {preview.test.questions.map((q) => (
