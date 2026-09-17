@@ -1,36 +1,76 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# MTI+ Exam Platform
 
-## Getting Started
+Платформа для приёма экзаменов: админ загружает учебный материал →
+конвертирует его в MD-тест по заданному шаблону → студенты проходят тест
+и видят разбивку результата по разделам экзамена.
 
-First, run the development server:
+## Структура репозитория
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+```
+mti-exam-platform/
+  backend/            Express + TypeScript + Prisma + PostgreSQL API
+  frontend/
+    admin/            React (Vite) — панель администратора
+    user/              React (Vite) — кабинет студента
+  docs/
+    md-template-spec.md          формат MD-теста
+    admin-prompt-template.md     промпт для генерации теста через AI
+    example-comptia-a-plus.md    пример готового теста (90 вопросов)
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+## Быстрый старт (локально)
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+### 1. База данных
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+Нужен PostgreSQL. Для разработки — контейнер:
 
-## Learn More
+```bash
+docker run -d --name mti-exam-db \
+  -e POSTGRES_USER=mti -e POSTGRES_PASSWORD=mti_dev_pw -e POSTGRES_DB=mti_exam \
+  -p 5433:5432 postgres:16-alpine
+```
 
-To learn more about Next.js, take a look at the following resources:
+### 2. Backend
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+```bash
+cd backend
+cp .env.example .env   # поправьте DATABASE_URL/JWT_SECRET/SEED_ADMIN_*
+npm install
+npm run prisma:migrate  # применяет схему
+npm run seed             # создаёт первого админа из SEED_ADMIN_* в .env
+npm run dev               # http://localhost:4000
+```
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+### 3. Frontend — админка
 
-## Deploy on Vercel
+```bash
+cd frontend/admin
+cp .env.example .env
+npm install
+npm run dev   # http://localhost:5173
+```
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+### 4. Frontend — кабинет студента
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+```bash
+cd frontend/user
+cp .env.example .env
+npm install
+npm run dev   # http://localhost:5174
+```
+
+## Как это работает
+
+1. Админ логинится в `frontend/admin`, открывает **Upload Material**,
+   копирует промпт, вставляет его вместе с учебным материалом в
+   ChatGPT/Claude, получает MD-файл — см. `docs/admin-prompt-template.md`.
+2. Вставляет MD в форму загрузки → сайт валидирует формат
+   (`docs/md-template-spec.md`) и показывает предпросмотр с ошибками.
+3. Сохраняет и публикует тест.
+4. Студент в `frontend/user` регистрируется, выбирает опубликованный
+   тест, проходит его, получает итоговый процент и разбивку по разделам.
+5. Админ видит список участников теста и детальный разбор ответов
+   каждого студента.
+
+Правильные ответы никогда не отправляются студенту до отправки его
+попытки — подсчёт происходит только на backend.
