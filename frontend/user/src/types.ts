@@ -24,8 +24,6 @@ export interface TestSummary {
   title: string;
   description: string | null;
   passPercent: number;
-  language: string;
-  groupKey: string | null;
   createdAt: string;
   _count: { questions: number };
 }
