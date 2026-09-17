@@ -24,8 +24,6 @@ export interface TestSummary {
   title: string;
   description: string | null;
   passPercent: number;
-  language: string;
-  groupKey: string | null;
   isPublished: boolean;
   createdAt: string;
   createdBy: { fullName: string };
@@ -50,8 +48,6 @@ export interface ParsePreviewResult {
     title: string;
     description: string | null;
     passPercent: number;
-    language: string;
-    groupKey: string | null;
     questions: ParsedQuestionPreview[];
   } | null;
   issues: { line: number; message: string }[];

@@ -26,6 +26,15 @@ export async function setPublished(id: string, isPublished: boolean) {
   return data;
 }
 
+export async function renameTest(id: string, title: string) {
+  const { data } = await api.patch<TestSummary>(`/tests/${id}`, { title });
+  return data;
+}
+
+export async function deleteTest(id: string) {
+  await api.delete(`/tests/${id}`);
+}
+
 export async function getParticipants(testId: string) {
   const { data } = await api.get<Participant[]>(`/tests/${testId}/participants`);
   return data;

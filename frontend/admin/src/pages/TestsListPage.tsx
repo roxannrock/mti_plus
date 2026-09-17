@@ -1,13 +1,17 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import type { TestSummary } from "../types";
-import { listTests, setPublished } from "../api/tests";
+import { deleteTest, listTests, renameTest, setPublished } from "../api/tests";
 import { apiErrorMessage } from "../api/client";
 
 export function TestsListPage() {
   const [tests, setTests] = useState<TestSummary[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [togglingId, setTogglingId] = useState<string | null>(null);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editingTitle, setEditingTitle] = useState("");
+  const [savingTitle, setSavingTitle] = useState(false);
 
   async function load() {
     try {
@@ -30,6 +34,45 @@ export function TestsListPage() {
       setError(apiErrorMessage(err));
     } finally {
       setTogglingId(null);
+    }
+  }
+
+  function startEditing(test: TestSummary) {
+    setEditingId(test.id);
+    setEditingTitle(test.title);
+  }
+
+  async function saveTitle(test: TestSummary) {
+    const title = editingTitle.trim();
+    if (!title || title === test.title) {
+      setEditingId(null);
+      return;
+    }
+    setSavingTitle(true);
+    try {
+      await renameTest(test.id, title);
+      setEditingId(null);
+      await load();
+    } catch (err) {
+      setError(apiErrorMessage(err, "Не удалось переименовать тест."));
+    } finally {
+      setSavingTitle(false);
+    }
+  }
+
+  async function removeTest(test: TestSummary) {
+    const confirmed = window.confirm(
+      `Удалить тест «${test.title}» безвозвратно? Вместе с ним удалятся все попытки прохождения (${test._count.attempts}).`,
+    );
+    if (!confirmed) return;
+    setDeletingId(test.id);
+    try {
+      await deleteTest(test.id);
+      await load();
+    } catch (err) {
+      setError(apiErrorMessage(err, "Не удалось удалить тест."));
+    } finally {
+      setDeletingId(null);
     }
   }
 
@@ -59,13 +102,45 @@ export function TestsListPage() {
             className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900"
           >
             <div className="flex items-start justify-between gap-4">
-              <div>
-                <div className="flex items-center gap-2">
-                  <h2 className="text-lg font-medium text-slate-900 dark:text-slate-100">{test.title}</h2>
-                  <span className="rounded border border-slate-300 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-slate-500 dark:border-slate-700 dark:text-slate-400">
-                    {test.language}
-                  </span>
-                </div>
+              <div className="min-w-0 flex-1">
+                {editingId === test.id ? (
+                  <div className="flex items-center gap-2">
+                    <input
+                      autoFocus
+                      value={editingTitle}
+                      onChange={(e) => setEditingTitle(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter") saveTitle(test);
+                        if (e.key === "Escape") setEditingId(null);
+                      }}
+                      className="w-full max-w-md rounded-md border border-slate-300 bg-white px-2 py-1 text-lg font-medium text-slate-900 outline-none focus:border-indigo-500 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100"
+                    />
+                    <button
+                      onClick={() => saveTitle(test)}
+                      disabled={savingTitle}
+                      className="rounded-md bg-indigo-600 px-2.5 py-1 text-xs font-medium text-white hover:bg-indigo-700 disabled:opacity-50 dark:bg-indigo-500 dark:hover:bg-indigo-400"
+                    >
+                      Сохранить
+                    </button>
+                    <button
+                      onClick={() => setEditingId(null)}
+                      className="rounded-md border border-slate-300 px-2.5 py-1 text-xs font-medium text-slate-700 hover:bg-slate-50 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800"
+                    >
+                      Отмена
+                    </button>
+                  </div>
+                ) : (
+                  <div className="flex items-center gap-2">
+                    <h2 className="text-lg font-medium text-slate-900 dark:text-slate-100">{test.title}</h2>
+                    <button
+                      onClick={() => startEditing(test)}
+                      title="Переименовать"
+                      className="text-xs text-slate-400 hover:text-indigo-600 dark:text-slate-500 dark:hover:text-indigo-400"
+                    >
+                      ✎
+                    </button>
+                  </div>
+                )}
                 {test.description && (
                   <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">{test.description}</p>
                 )}
@@ -74,7 +149,6 @@ export function TestsListPage() {
                   <span>Проходной балл: {test.passPercent}%</span>
                   <span>{test._count.attempts} попыток</span>
                   <span>Автор: {test.createdBy.fullName}</span>
-                  {test.groupKey && <span>Группа: {test.groupKey}</span>}
                 </div>
               </div>
               <span
@@ -100,6 +174,13 @@ export function TestsListPage() {
                 className="rounded-md border border-slate-300 px-3 py-1.5 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:opacity-50 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800"
               >
                 {test.isPublished ? "Снять с публикации" : "Опубликовать"}
+              </button>
+              <button
+                onClick={() => removeTest(test)}
+                disabled={deletingId === test.id}
+                className="rounded-md border border-red-300 px-3 py-1.5 text-sm font-medium text-red-600 hover:bg-red-50 disabled:opacity-50 dark:border-red-900/50 dark:text-red-400 dark:hover:bg-red-500/10"
+              >
+                {deletingId === test.id ? "Удаляем..." : "Удалить"}
               </button>
             </div>
           </div>
