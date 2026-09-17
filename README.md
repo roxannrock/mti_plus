@@ -148,38 +148,59 @@ systemd-сервис за Nginx, Postgres в Docker (как и в dev), оба �
 Схема доменов ниже — пример (`app.example.com` для студентов,
 `admin.example.com` для админки). Подставьте свои.
 
+Все команды — от имени обычного пользователя с правами `sudo` (не
+`root`). Если логинитесь как `root` — уберите `sudo` из команд.
+
+### Требуемые утилиты и пакеты
+
+| Пакет/утилита | Зачем |
+|---|---|
+| `curl` | скачивание установочных скриптов |
+| `git` | доставка кода на сервер, обновления |
+| `make` | все команды сборки/деплоя (`Makefile` в репозитории) |
+| `ufw` | firewall (открыть только SSH/80/443) |
+| `nodejs` (24.x) + `npm` | backend и сборка обоих фронтендов |
+| Docker Engine | PostgreSQL в контейнере (так же, как в dev) |
+| `nginx` | раздача статики фронтендов + reverse proxy на backend |
+| `certbot` + `python3-certbot-nginx` | HTTPS-сертификат (нужен домен) |
+| `openssl` | генерация `JWT_SECRET`; обычно уже стоит в системе |
+
 ### 1. Базовая настройка сервера
 
 ```bash
-ssh root@<IP_СЕРВЕРА>
+ssh <ваш_пользователь>@<IP_СЕРВЕРА>
 
-apt update && apt upgrade -y
-apt install -y curl git ufw
+sudo apt update && sudo apt upgrade -y
+sudo apt install -y curl git make ufw
 
-ufw allow OpenSSH
-ufw allow 80/tcp
-ufw allow 443/tcp
-ufw enable
+sudo ufw allow OpenSSH
+sudo ufw allow 80/tcp
+sudo ufw allow 443/tcp
+sudo ufw enable
 ```
 
 ### 2. Node.js 24 LTS
 
 ```bash
-curl -fsSL https://deb.nodesource.com/setup_24.x | bash -
-apt install -y nodejs
+curl -fsSL https://deb.nodesource.com/setup_24.x | sudo -E bash -
+sudo apt install -y nodejs
 node -v   # >=22
 ```
 
 ### 3. Docker (под Postgres)
 
 ```bash
-curl -fsSL https://get.docker.com | sh
+curl -fsSL https://get.docker.com | sudo sh
+
+# чтобы не писать sudo перед каждой docker-командой (make db-up её использует):
+sudo usermod -aG docker "$USER"
+newgrp docker   # применяет членство в группе docker в текущей сессии
 ```
 
 ### 4. Nginx + Certbot
 
 ```bash
-apt install -y nginx certbot python3-certbot-nginx
+sudo apt install -y nginx certbot python3-certbot-nginx
 ```
 
 ### 5. Код на сервер
@@ -187,6 +208,9 @@ apt install -y nginx certbot python3-certbot-nginx
 Через приватный git-репозиторий (рекомендуется — упрощает будущие обновления):
 
 ```bash
+sudo mkdir -p /opt/mti-exam-platform
+sudo chown "$USER":"$USER" /opt/mti-exam-platform
+
 git clone <ваш-git-url> /opt/mti-exam-platform
 cd /opt/mti-exam-platform
 ```
@@ -227,9 +251,11 @@ make build     # собирает backend/dist + frontend/admin/dist + frontend/
 
 ### 9. Backend как systemd-сервис
 
-`/etc/systemd/system/mti-backend.service`:
+Замените `<ваш_пользователь>` на пользователя, под которым лежит код
+(того же, что в шаге 5):
 
-```ini
+```bash
+sudo tee /etc/systemd/system/mti-backend.service > /dev/null <<'EOF'
 [Unit]
 Description=MTI Exam Platform backend
 After=network.target docker.service
@@ -239,24 +265,22 @@ Type=simple
 WorkingDirectory=/opt/mti-exam-platform/backend
 ExecStart=/usr/bin/node dist/index.js
 Restart=on-failure
-User=root
+User=<ваш_пользователь>
 EnvironmentFile=/opt/mti-exam-platform/backend/.env
 
 [Install]
 WantedBy=multi-user.target
-```
+EOF
 
-```bash
-systemctl daemon-reload
-systemctl enable --now mti-backend
-systemctl status mti-backend   # должен быть active (running), слушает :4000
+sudo systemctl daemon-reload
+sudo systemctl enable --now mti-backend
+sudo systemctl status mti-backend   # должен быть active (running), слушает :4000
 ```
 
 ### 10. Nginx — фронтенды + прокси на backend
 
-`/etc/nginx/sites-available/mti-exam-platform`:
-
-```nginx
+```bash
+sudo tee /etc/nginx/sites-available/mti-exam-platform > /dev/null <<'EOF'
 server {
     listen 80;
     server_name app.example.com;
@@ -282,11 +306,10 @@ server {
         proxy_set_header X-Real-IP $remote_addr;
     }
 }
-```
+EOF
 
-```bash
-ln -s /etc/nginx/sites-available/mti-exam-platform /etc/nginx/sites-enabled/
-nginx -t && systemctl reload nginx
+sudo ln -s /etc/nginx/sites-available/mti-exam-platform /etc/nginx/sites-enabled/
+sudo nginx -t && sudo systemctl reload nginx
 ```
 
 Проксирование `/api/` в Nginx — подстраховка; на практике фронтенды
@@ -304,7 +327,7 @@ make build   # пересобрать с новым VITE_API_URL
 ### 12. HTTPS
 
 ```bash
-certbot --nginx -d app.example.com -d admin.example.com
+sudo certbot --nginx -d app.example.com -d admin.example.com
 ```
 
 Certbot сам допишет `listen 443 ssl` и настроит автопродление
@@ -326,7 +349,7 @@ git pull
 make install
 make migrate
 make build
-systemctl restart mti-backend
+sudo systemctl restart mti-backend
 ```
 
 `make migrate` использует `prisma migrate deploy` — безопасно на боевой
