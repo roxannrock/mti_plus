@@ -137,15 +137,197 @@ Vite и ts-node-dev не выводят новый prompt в терминал, �
 Правильные ответы никогда не отправляются студенту до отправки его
 попытки — подсчёт происходит только на backend.
 
-## Деплой на VPS (кратко)
+## Деплой на VPS
 
-- `backend`: `make build && make start` (или `npm run build && npm run start`
-  внутри `backend/`), перед первым запуском — `npm run prisma:migrate`
-  на боевой базе. Нужны реальные `DATABASE_URL`/`JWT_SECRET` в `.env`
-  (не dev-значения из примера).
-- `frontend/admin` и `frontend/user`: `npm run build` в каждом даёт
-  статические файлы в `dist/` — раздавайте их через nginx/Caddy или
-  любой статический хостинг, с `VITE_API_URL`, указывающим на реальный
-  адрес backend.
-- Не забудьте выставить `CORS_ORIGINS` в `backend/.env` на реальные
-  домены обеих фронтенд-частей.
+Ниже — рабочий план для чистого Ubuntu 22.04/24.04 VPS: backend как
+systemd-сервис за Nginx, Postgres в Docker (как и в dev), оба фронтенда —
+статическая сборка, отданная тем же Nginx. Предполагается домен,
+указывающий на сервер (для HTTPS); если деплоите пока по голому IP —
+шаг с certbot и `server_name` в Nginx пропустите/замените на IP.
+
+Схема доменов ниже — пример (`app.example.com` для студентов,
+`admin.example.com` для админки). Подставьте свои.
+
+### 1. Базовая настройка сервера
+
+```bash
+ssh root@<IP_СЕРВЕРА>
+
+apt update && apt upgrade -y
+apt install -y curl git ufw
+
+ufw allow OpenSSH
+ufw allow 80/tcp
+ufw allow 443/tcp
+ufw enable
+```
+
+### 2. Node.js 24 LTS
+
+```bash
+curl -fsSL https://deb.nodesource.com/setup_24.x | bash -
+apt install -y nodejs
+node -v   # >=22
+```
+
+### 3. Docker (под Postgres)
+
+```bash
+curl -fsSL https://get.docker.com | sh
+```
+
+### 4. Nginx + Certbot
+
+```bash
+apt install -y nginx certbot python3-certbot-nginx
+```
+
+### 5. Код на сервер
+
+Через приватный git-репозиторий (рекомендуется — упрощает будущие обновления):
+
+```bash
+git clone <ваш-git-url> /opt/mti-exam-platform
+cd /opt/mti-exam-platform
+```
+
+### 6. База данных
+
+```bash
+cd /opt/mti-exam-platform/backend
+make db-up   # поднимет Postgres в Docker на порту 5433, как в dev
+```
+
+### 7. `backend/.env` — боевые значения
+
+```bash
+cp backend/.env.example backend/.env
+```
+
+Отредактируйте `backend/.env`:
+
+- `DATABASE_URL` — оставьте как в `.env.example`, если используете
+  `make db-up` (порт 5433), либо укажите свою СУБД.
+- `JWT_SECRET` — сгенерируйте случайную строку, **не** оставляйте
+  dev-значение: `openssl rand -base64 48`
+- `CORS_ORIGINS` — реальные домены обоих фронтендов, например
+  `https://app.example.com,https://admin.example.com`
+- `SEED_ADMIN_EMAIL` / `SEED_ADMIN_PASSWORD` / `SEED_ADMIN_NAME` — свои,
+  пароль — надёжный (это единственный админ, создаваемый автоматически)
+
+### 8. Установка, миграции, сборка, первый админ
+
+```bash
+cd /opt/mti-exam-platform
+make install
+make migrate
+make seed
+make build     # собирает backend/dist + frontend/admin/dist + frontend/user/dist
+```
+
+### 9. Backend как systemd-сервис
+
+`/etc/systemd/system/mti-backend.service`:
+
+```ini
+[Unit]
+Description=MTI Exam Platform backend
+After=network.target docker.service
+
+[Service]
+Type=simple
+WorkingDirectory=/opt/mti-exam-platform/backend
+ExecStart=/usr/bin/node dist/index.js
+Restart=on-failure
+User=root
+EnvironmentFile=/opt/mti-exam-platform/backend/.env
+
+[Install]
+WantedBy=multi-user.target
+```
+
+```bash
+systemctl daemon-reload
+systemctl enable --now mti-backend
+systemctl status mti-backend   # должен быть active (running), слушает :4000
+```
+
+### 10. Nginx — фронтенды + прокси на backend
+
+`/etc/nginx/sites-available/mti-exam-platform`:
+
+```nginx
+server {
+    listen 80;
+    server_name app.example.com;
+    root /opt/mti-exam-platform/frontend/user/dist;
+    index index.html;
+    location / { try_files $uri $uri/ /index.html; }
+    location /api/ {
+        proxy_pass http://127.0.0.1:4000/api/;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+    }
+}
+
+server {
+    listen 80;
+    server_name admin.example.com;
+    root /opt/mti-exam-platform/frontend/admin/dist;
+    index index.html;
+    location / { try_files $uri $uri/ /index.html; }
+    location /api/ {
+        proxy_pass http://127.0.0.1:4000/api/;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+    }
+}
+```
+
+```bash
+ln -s /etc/nginx/sites-available/mti-exam-platform /etc/nginx/sites-enabled/
+nginx -t && systemctl reload nginx
+```
+
+Проксирование `/api/` в Nginx — подстраховка; на практике фронтенды
+ходят напрямую по `VITE_API_URL`, который прописывается **во время
+сборки** (шаг 11), так что после смены `.env` фронтендов нужен пересбор.
+
+### 11. `VITE_API_URL` для обоих фронтендов
+
+```bash
+echo "VITE_API_URL=https://app.example.com/api" > frontend/user/.env
+echo "VITE_API_URL=https://admin.example.com/api" > frontend/admin/.env
+make build   # пересобрать с новым VITE_API_URL
+```
+
+### 12. HTTPS
+
+```bash
+certbot --nginx -d app.example.com -d admin.example.com
+```
+
+Certbot сам допишет `listen 443 ssl` и настроит автопродление
+(systemd-таймер `certbot.timer`, уже включён по умолчанию).
+
+### 13. Проверка
+
+```bash
+curl -I https://app.example.com
+curl -I https://admin.example.com
+curl -s https://app.example.com/api/health
+```
+
+### Обновление после деплоя
+
+```bash
+cd /opt/mti-exam-platform
+git pull
+make install
+make migrate
+make build
+systemctl restart mti-backend
+```
+
+`make migrate` использует `prisma migrate deploy` — безопасно на боевой
+базе, применяет только новые миграции, ничего не спрашивает интерактивно.
