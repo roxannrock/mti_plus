@@ -15,25 +15,34 @@ export function HistoryPage() {
 
   return (
     <div>
-      <h1 className="mb-6 text-2xl font-semibold text-slate-900">Моя история</h1>
+      <h1 className="mb-6 text-2xl font-semibold text-slate-900 dark:text-slate-100">Моя история</h1>
 
-      {error && <p className="text-sm text-red-600">{error}</p>}
-      {!history && !error && <p className="text-slate-500">Загрузка...</p>}
-      {history?.length === 0 && <p className="text-slate-500">Вы ещё не проходили тесты.</p>}
+      {error && <p className="text-sm text-red-600 dark:text-red-400">{error}</p>}
+      {!history && !error && <p className="text-slate-500 dark:text-slate-400">Загрузка...</p>}
+      {history?.length === 0 && <p className="text-slate-500 dark:text-slate-400">Вы ещё не проходили тесты.</p>}
 
       <div className="space-y-4">
         {history?.map((attempt) => (
-          <div key={attempt.id} className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
+          <div
+            key={attempt.id}
+            className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900"
+          >
             <div className="flex items-start justify-between">
               <div>
-                <h2 className="font-medium text-slate-900">{attempt.test.title}</h2>
-                <p className="text-xs text-slate-500">{new Date(attempt.finishedAt).toLocaleString("ru-RU")}</p>
+                <h2 className="font-medium text-slate-900 dark:text-slate-100">{attempt.test.title}</h2>
+                <p className="text-xs text-slate-500 dark:text-slate-400">
+                  {new Date(attempt.finishedAt).toLocaleString("ru-RU")}
+                </p>
               </div>
               <div className="text-right">
-                <p className={`text-lg font-semibold ${attempt.passed ? "text-emerald-600" : "text-red-600"}`}>
+                <p
+                  className={`text-lg font-semibold ${
+                    attempt.passed ? "text-emerald-600 dark:text-emerald-400" : "text-red-600 dark:text-red-400"
+                  }`}
+                >
                   {attempt.scorePercent}%
                 </p>
-                <p className="text-xs text-slate-500">
+                <p className="text-xs text-slate-500 dark:text-slate-400">
                   {attempt.correctCount}/{attempt.totalCount}
                 </p>
               </div>
@@ -44,11 +53,11 @@ export function HistoryPage() {
                 const pct = stat.total === 0 ? 0 : Math.round((stat.correct / stat.total) * 100);
                 return (
                   <div key={section} className="text-xs">
-                    <div className="mb-0.5 flex justify-between text-slate-500">
+                    <div className="mb-0.5 flex justify-between text-slate-500 dark:text-slate-400">
                       <span>{section}</span>
                       <span>{pct}%</span>
                     </div>
-                    <div className="h-1.5 rounded-full bg-slate-100">
+                    <div className="h-1.5 rounded-full bg-slate-100 dark:bg-slate-800">
                       <div
                         className={`h-1.5 rounded-full ${pct >= 70 ? "bg-emerald-500" : pct >= 40 ? "bg-amber-500" : "bg-red-500"}`}
                         style={{ width: `${pct}%` }}

@@ -6,7 +6,7 @@ export function ProtectedRoute({ children }: { children: ReactNode }) {
   const { user, loading } = useAuth();
 
   if (loading) {
-    return <div className="p-8 text-center text-slate-500">Загрузка...</div>;
+    return <div className="p-8 text-center text-slate-500 dark:text-slate-400 dark:bg-slate-950">Загрузка...</div>;
   }
 
   if (!user) {

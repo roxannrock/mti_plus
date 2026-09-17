@@ -57,15 +57,15 @@ export function TakeTestPage() {
     }
   }
 
-  if (error && !test) return <p className="text-sm text-red-600">{error}</p>;
-  if (!test) return <p className="text-slate-500">Загрузка...</p>;
+  if (error && !test) return <p className="text-sm text-red-600 dark:text-red-400">{error}</p>;
+  if (!test) return <p className="text-slate-500 dark:text-slate-400">Загрузка...</p>;
 
   return (
     <div>
-      <div className="sticky top-0 z-10 mb-6 -mx-6 border-b border-slate-200 bg-white/90 px-6 py-3 backdrop-blur">
+      <div className="sticky top-0 z-10 mb-6 -mx-6 border-b border-slate-200 bg-white/90 px-6 py-3 backdrop-blur dark:border-slate-800 dark:bg-slate-950/90">
         <div className="flex items-center justify-between">
-          <h1 className="text-lg font-semibold text-slate-900">{test.title}</h1>
-          <span className="text-sm text-slate-500">
+          <h1 className="text-lg font-semibold text-slate-900 dark:text-slate-100">{test.title}</h1>
+          <span className="text-sm text-slate-500 dark:text-slate-400">
             Отвечено: {answeredCount}/{test.questions.length}
           </span>
         </div>
@@ -73,13 +73,16 @@ export function TakeTestPage() {
 
       <div className="space-y-5">
         {test.questions.map((q) => (
-          <div key={q.id} className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
-            <div className="mb-1 text-xs uppercase tracking-wide text-slate-400">
+          <div
+            key={q.id}
+            className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900"
+          >
+            <div className="mb-1 text-xs uppercase tracking-wide text-slate-400 dark:text-slate-500">
               Q{q.order} · {q.section}
             </div>
-            <p className="mb-1 font-medium text-slate-900">{q.prompt}</p>
+            <p className="mb-1 font-medium text-slate-900 dark:text-slate-100">{q.prompt}</p>
             {q.isMultiple && (
-              <p className="mb-2 text-xs text-indigo-600">Выберите все подходящие варианты</p>
+              <p className="mb-2 text-xs text-indigo-600 dark:text-indigo-400">Выберите все подходящие варианты</p>
             )}
             <div className="mt-2 space-y-2">
               {q.options.map((opt) => {
@@ -88,7 +91,9 @@ export function TakeTestPage() {
                   <label
                     key={opt.key}
                     className={`flex cursor-pointer items-center gap-2 rounded-md border px-3 py-2 text-sm ${
-                      selected ? "border-indigo-400 bg-indigo-50" : "border-slate-200 hover:bg-slate-50"
+                      selected
+                        ? "border-indigo-400 bg-indigo-50 dark:border-indigo-500 dark:bg-indigo-500/10"
+                        : "border-slate-200 hover:bg-slate-50 dark:border-slate-700 dark:hover:bg-slate-800"
                     }`}
                   >
                     <input
@@ -100,7 +105,7 @@ export function TakeTestPage() {
                       }
                       className="accent-indigo-600"
                     />
-                    <span>
+                    <span className="text-slate-800 dark:text-slate-200">
                       {opt.key}. {opt.text}
                     </span>
                   </label>
@@ -111,13 +116,13 @@ export function TakeTestPage() {
         ))}
       </div>
 
-      {error && <p className="mt-4 text-sm text-red-600">{error}</p>}
+      {error && <p className="mt-4 text-sm text-red-600 dark:text-red-400">{error}</p>}
 
-      <div className="sticky bottom-0 mt-6 -mx-6 border-t border-slate-200 bg-white/90 px-6 py-4 backdrop-blur">
+      <div className="sticky bottom-0 mt-6 -mx-6 border-t border-slate-200 bg-white/90 px-6 py-4 backdrop-blur dark:border-slate-800 dark:bg-slate-950/90">
         <button
           onClick={onSubmit}
           disabled={submitting}
-          className="w-full rounded-md bg-indigo-600 py-2.5 text-sm font-medium text-white hover:bg-indigo-700 disabled:opacity-50"
+          className="w-full rounded-md bg-indigo-600 py-2.5 text-sm font-medium text-white hover:bg-indigo-700 disabled:opacity-50 dark:bg-indigo-500 dark:hover:bg-indigo-400"
         >
           {submitting ? "Отправляем..." : "Завершить и отправить"}
         </button>
