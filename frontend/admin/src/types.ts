@@ -1,6 +1,6 @@
 export interface AuthUser {
   id: string;
-  email: string;
+  login: string;
   fullName: string;
   role: "ADMIN" | "STUDENT";
 }
@@ -67,7 +67,7 @@ export interface Participant {
   scorePercent: number;
   passed: boolean;
   sectionStats: Record<string, SectionStat>;
-  student: { id: string; fullName: string; email: string };
+  student: { id: string; fullName: string; login: string };
 }
 
 export interface ParticipantDetail extends Participant {

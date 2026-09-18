@@ -93,9 +93,16 @@ backend, `cd backend && make dev` эквивалентно `make -C backend dev`
 
 ### Учётные записи по умолчанию (dev)
 
-После `make seed` — админ с email/паролем из `SEED_ADMIN_EMAIL` /
-`SEED_ADMIN_PASSWORD` в `backend/.env`. Студенты регистрируются сами
-через форму на `http://localhost:5174/register`.
+Вход везде — по логину (не email), самостоятельной регистрации нет.
+После `make seed`:
+
+- админ — логин/пароль из `SEED_ADMIN_LOGIN` / `SEED_ADMIN_PASSWORD` в
+  `backend/.env`;
+- один тестовый студент — из `SEED_STUDENT_LOGIN` / `SEED_STUDENT_PASSWORD`
+  (если заданы в `backend/.env`; можно оставить пустыми, чтобы пропустить).
+
+Реальные студенческие аккаунты будут подтягиваться через LDAP — этот
+сид нужен только чтобы было кем залогиниться, пока интеграция не готова.
 
 ## Если что-то не отвечает
 
@@ -236,7 +243,7 @@ cp backend/.env.example backend/.env
   dev-значение: `openssl rand -base64 48`
 - `CORS_ORIGINS` — реальные домены обоих фронтендов, например
   `https://app.example.com,https://admin.example.com`
-- `SEED_ADMIN_EMAIL` / `SEED_ADMIN_PASSWORD` / `SEED_ADMIN_NAME` — свои,
+- `SEED_ADMIN_LOGIN` / `SEED_ADMIN_PASSWORD` / `SEED_ADMIN_NAME` — свои,
   пароль — надёжный (это единственный админ, создаваемый автоматически)
 
 ### 8. Установка, миграции, сборка, первый админ

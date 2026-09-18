@@ -5,7 +5,7 @@ import { fetchMe, login as loginRequest } from "../api/auth";
 interface AuthContextValue {
   user: AuthUser | null;
   loading: boolean;
-  login: (email: string, password: string) => Promise<void>;
+  login: (login: string, password: string) => Promise<void>;
   logout: () => void;
 }
 
@@ -36,8 +36,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       .finally(() => setLoading(false));
   }, []);
 
-  async function login(email: string, password: string) {
-    const { token, user: loggedInUser } = await loginRequest(email, password);
+  async function login(login: string, password: string) {
+    const { token, user: loggedInUser } = await loginRequest(login, password);
     if (loggedInUser.role !== "ADMIN") {
       throw new Error("Этот аккаунт не является админским.");
     }

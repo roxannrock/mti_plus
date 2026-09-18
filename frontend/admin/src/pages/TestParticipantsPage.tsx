@@ -51,7 +51,7 @@ export function TestParticipantsPage() {
                 <tr key={p.id}>
                   <td className="px-4 py-3">
                     <div className="font-medium text-slate-900 dark:text-slate-100">{p.student.fullName}</div>
-                    <div className="text-xs text-slate-500 dark:text-slate-400">{p.student.email}</div>
+                    <div className="text-xs text-slate-500 dark:text-slate-400">{p.student.login}</div>
                   </td>
                   <td className="px-4 py-3 text-slate-700 dark:text-slate-300">
                     {p.correctCount}/{p.totalCount}

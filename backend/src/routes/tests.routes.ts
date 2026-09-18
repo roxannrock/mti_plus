@@ -156,7 +156,7 @@ testsRouter.get(
     const attempts = await prisma.attempt.findMany({
       where: { testId: requireParam(req, "id"), finishedAt: { not: null } },
       orderBy: { finishedAt: "desc" },
-      include: { student: { select: { id: true, fullName: true, email: true } } },
+      include: { student: { select: { id: true, fullName: true, login: true } } },
     });
     res.json(attempts);
   }),
@@ -170,7 +170,7 @@ testsRouter.get(
     const attempt = await prisma.attempt.findFirst({
       where: { id: requireParam(req, "attemptId"), testId: requireParam(req, "id") },
       include: {
-        student: { select: { id: true, fullName: true, email: true } },
+        student: { select: { id: true, fullName: true, login: true } },
         answers: { include: { question: true } },
       },
     });

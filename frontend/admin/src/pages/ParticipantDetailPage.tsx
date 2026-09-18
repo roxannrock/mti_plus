@@ -32,7 +32,7 @@ export function ParticipantDetailPage() {
 
       <div className="mb-6 rounded-lg border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900">
         <h1 className="text-xl font-semibold text-slate-900 dark:text-slate-100">{detail.student.fullName}</h1>
-        <p className="text-sm text-slate-500 dark:text-slate-400">{detail.student.email}</p>
+        <p className="text-sm text-slate-500 dark:text-slate-400">{detail.student.login}</p>
         <div className="mt-3 flex gap-6 text-sm text-slate-700 dark:text-slate-300">
           <span>
             Результат: <b>{detail.correctCount}/{detail.totalCount}</b> ({detail.scorePercent}%)

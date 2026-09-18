@@ -1,9 +1,9 @@
 import { api } from "./client";
 import type { AuthUser } from "../types";
 
-export async function login(email: string, password: string) {
+export async function login(login: string, password: string) {
   const { data } = await api.post<{ token: string; user: AuthUser }>("/auth/login", {
-    email,
+    login,
     password,
   });
   return data;

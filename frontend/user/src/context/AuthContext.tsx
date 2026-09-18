@@ -1,12 +1,11 @@
 import { createContext, useContext, useEffect, useState, type ReactNode } from "react";
 import type { AuthUser } from "../types";
-import { fetchMe, login as loginRequest, register as registerRequest } from "../api/auth";
+import { fetchMe, login as loginRequest } from "../api/auth";
 
 interface AuthContextValue {
   user: AuthUser | null;
   loading: boolean;
-  login: (email: string, password: string) => Promise<void>;
-  register: (email: string, password: string, fullName: string) => Promise<void>;
+  login: (login: string, password: string) => Promise<void>;
   logout: () => void;
 }
 
@@ -40,14 +39,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setUser(loggedInUser);
   }
 
-  async function login(email: string, password: string) {
-    const { token, user: loggedInUser } = await loginRequest(email, password);
+  async function login(login: string, password: string) {
+    const { token, user: loggedInUser } = await loginRequest(login, password);
     persist(token, loggedInUser);
-  }
-
-  async function register(email: string, password: string, fullName: string) {
-    const { token, user: newUser } = await registerRequest(email, password, fullName);
-    persist(token, newUser);
   }
 
   function logout() {
@@ -56,9 +50,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setUser(null);
   }
 
-  return (
-    <AuthContext.Provider value={{ user, loading, login, register, logout }}>{children}</AuthContext.Provider>
-  );
+  return <AuthContext.Provider value={{ user, loading, login, logout }}>{children}</AuthContext.Provider>;
 }
 
 export function useAuth() {

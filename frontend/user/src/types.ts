@@ -1,6 +1,6 @@
 export interface AuthUser {
   id: string;
-  email: string;
+  login: string;
   fullName: string;
   role: "ADMIN" | "STUDENT";
 }

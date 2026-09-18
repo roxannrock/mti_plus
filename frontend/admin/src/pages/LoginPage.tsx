@@ -7,7 +7,7 @@ import { ThemeToggle } from "../components/ThemeToggle";
 export function LoginPage() {
   const { login } = useAuth();
   const navigate = useNavigate();
-  const [email, setEmail] = useState("");
+  const [loginValue, setLoginValue] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
@@ -17,7 +17,7 @@ export function LoginPage() {
     setError(null);
     setSubmitting(true);
     try {
-      await login(email, password);
+      await login(loginValue, password);
       navigate("/tests");
     } catch (err) {
       setError(apiErrorMessage(err, "Не удалось войти."));
@@ -38,12 +38,12 @@ export function LoginPage() {
         <h1 className="mb-1 text-xl font-semibold text-slate-900 dark:text-slate-100">MTI+ Admin</h1>
         <p className="mb-6 text-sm text-slate-500 dark:text-slate-400">Вход для администраторов</p>
 
-        <label className="mb-1 block text-sm font-medium text-slate-700 dark:text-slate-300">Email</label>
+        <label className="mb-1 block text-sm font-medium text-slate-700 dark:text-slate-300">Логин</label>
         <input
-          type="email"
+          type="text"
           required
-          value={email}
-          onChange={(e) => setEmail(e.target.value)}
+          value={loginValue}
+          onChange={(e) => setLoginValue(e.target.value)}
           className="mb-4 w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 outline-none focus:border-indigo-500 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100"
         />
 
