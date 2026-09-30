@@ -1,18 +1,34 @@
 import { api } from "./client";
-import type { ParsePreviewResult, Participant, ParticipantDetail, TestDetail, TestSummary } from "../types";
+import type {
+  ParsePreviewResult,
+  Participant,
+  ParticipantDetail,
+  Question,
+  QuestionUpdate,
+  TestDetail,
+  TestSettings,
+  TestSummary,
+} from "../types";
 
-export async function parsePreview(markdown: string) {
-  const { data } = await api.post<ParsePreviewResult>("/tests/parse-preview", { markdown });
+export interface TestUpload {
+  csv: string;
+  title: string;
+  description: string | null;
+  passPercent: number;
+}
+
+export async function parsePreview(upload: TestUpload) {
+  const { data } = await api.post<ParsePreviewResult>("/tests/parse-preview", upload);
   return data;
 }
 
-export async function createTest(markdown: string) {
-  const { data } = await api.post<TestDetail>("/tests", { markdown });
+export async function createTest(upload: TestUpload) {
+  const { data } = await api.post<TestDetail>("/tests", upload);
   return data;
 }
 
-export async function listTests() {
-  const { data } = await api.get<TestSummary[]>("/tests");
+export async function listTests(archived = false) {
+  const { data } = await api.get<TestSummary[]>("/tests", { params: archived ? { archived: true } : {} });
   return data;
 }
 
@@ -26,13 +42,47 @@ export async function setPublished(id: string, isPublished: boolean) {
   return data;
 }
 
-export async function renameTest(id: string, title: string) {
-  const { data } = await api.patch<TestSummary>(`/tests/${id}`, { title });
+export async function updateTestSettings(id: string, settings: TestSettings) {
+  const { data } = await api.patch<TestSummary>(`/tests/${id}`, settings);
   return data;
 }
 
+// Tests without attempts are deleted; tests with attempts are archived instead.
 export async function deleteTest(id: string) {
-  await api.delete(`/tests/${id}`);
+  const { data } = await api.delete<{ deleted: boolean; archived: boolean }>(`/tests/${id}`);
+  return data;
+}
+
+export async function restoreTest(id: string) {
+  const { data } = await api.patch<TestSummary>(`/tests/${id}/restore`);
+  return data;
+}
+
+export async function updateQuestion(testId: string, questionId: string, update: QuestionUpdate) {
+  const { data } = await api.put<Question>(`/tests/${testId}/questions/${questionId}`, update);
+  return data;
+}
+
+// The endpoint needs the auth header, so a plain <a href> won't do: fetch the
+// file as a blob and hand it to the browser as a download.
+// Content-Disposition isn't readable cross-origin unless CORS exposes it, so
+// fall back to a name built from the title.
+export async function downloadTestSource(id: string, title: string) {
+  const res = await api.get<Blob>(`/tests/${id}/source`, { responseType: "blob" });
+  const disposition = String(res.headers["content-disposition"] ?? "");
+  const encoded = /filename\*=UTF-8''([^;]+)/i.exec(disposition)?.[1];
+  const ext = res.data.type.startsWith("text/markdown") ? "md" : "csv";
+  const filename = encoded
+    ? decodeURIComponent(encoded)
+    : `${title.replace(/[\\/:*?"<>|]+/g, " ").trim() || "test"}.${ext}`;
+  const url = URL.createObjectURL(res.data);
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = filename;
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
 
 export async function getParticipants(testId: string) {

@@ -5,7 +5,7 @@ import { Layout } from "./components/Layout";
 import { LoginPage } from "./pages/LoginPage";
 import { TestsListPage } from "./pages/TestsListPage";
 import { TakeTestPage } from "./pages/TakeTestPage";
-import { ResultPage } from "./pages/ResultPage";
+import { LegacyResultRedirect, ResultPage } from "./pages/ResultPage";
 import { HistoryPage } from "./pages/HistoryPage";
 
 export default function App() {
@@ -22,7 +22,8 @@ export default function App() {
         >
           <Route path="/tests" element={<TestsListPage />} />
           <Route path="/tests/:testId" element={<TakeTestPage />} />
-          <Route path="/tests/:testId/result" element={<ResultPage />} />
+          <Route path="/tests/:testId/result" element={<LegacyResultRedirect />} />
+          <Route path="/results/:attemptId" element={<ResultPage />} />
           <Route path="/history" element={<HistoryPage />} />
         </Route>
         <Route path="*" element={<Navigate to="/tests" replace />} />

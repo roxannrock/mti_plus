@@ -1,0 +1,48 @@
+/* Shared theme for both apps. Imported by each app's index.css right after
+   @import "tailwindcss"; the app also @source-s ../shared/src so Tailwind
+   generates the classes used by the shared components. */
+@custom-variant dark (&:where(.dark, .dark *));
+
+:root {
+  color-scheme: light;
+}
+
+:root.dark {
+  color-scheme: dark;
+}
+
+/* Soft light theme: instead of pure white, surfaces are muted grays so
+   switching over from the dark theme doesn't glare. Tailwind v4 utilities
+   read these palette variables, so every bg-white / bg-slate-50 / border
+   in the light theme picks them up without touching the components. */
+:root:not(.dark) {
+  --color-white: #f3f4f6; /* cards, inputs, button text */
+  --color-slate-50: #e7e9ed; /* page background, subtle fills */
+  --color-slate-100: #dde0e5; /* hover fills, progress tracks */
+  --color-slate-200: #cfd3da; /* borders */
+  --color-slate-300: #bcc2cb; /* input borders */
+  /* Secondary text is darkened to keep WCAG AA on the grayer surfaces:
+     500 ≥ 4.5:1 and 400 ≥ 3:1 on #f3f4f6, #e7e9ed and #dde0e5. */
+  --color-slate-400: #737d8d; /* placeholders, icons, hints */
+  --color-slate-500: #5b6474; /* secondary text */
+  --color-slate-900: #1e2533; /* main text, slightly softened */
+}
+
+body {
+  @apply bg-slate-50 text-slate-900 dark:bg-slate-950 dark:text-slate-100;
+}
+
+/* Theme switch: the whole page cross-fades via the View Transitions API
+   (see useTheme). Browsers without it just switch instantly. */
+::view-transition-old(root),
+::view-transition-new(root) {
+  animation-duration: 350ms;
+  animation-timing-function: ease-in-out;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  ::view-transition-old(root),
+  ::view-transition-new(root) {
+    animation: none;
+  }
+}

@@ -1,14 +1,5 @@
 @import "tailwindcss";
-@custom-variant dark (&:where(.dark, .dark *));
-
-:root {
-  color-scheme: light;
-}
-
-:root.dark {
-  color-scheme: dark;
-}
-
-body {
-  @apply bg-slate-50 text-slate-900 dark:bg-slate-950 dark:text-slate-100;
-}
+/* Theme palette, dark variant and theme-switch transition shared with the other app. */
+@import "@mti/shared/theme.css";
+/* Tailwind only scans this app by default; the shared components live outside it. */
+@source "../../shared/src";

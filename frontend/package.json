@@ -1,0 +1,9 @@
+{
+  "name": "mti-frontend",
+  "private": true,
+  "workspaces": [
+    "shared",
+    "admin",
+    "user"
+  ]
+}

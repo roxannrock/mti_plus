@@ -1,46 +1,81 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { DEFAULT_AI_PROMPT } from "../promptTemplate";
-import { createTest, parsePreview } from "../api/tests";
+import { createTest, parsePreview, type TestUpload } from "../api/tests";
 import { apiErrorMessage } from "../api/client";
 import type { ParsePreviewResult } from "../types";
 
+const TEMPLATE_URL = `${import.meta.env.BASE_URL}test-template.csv`;
+
+const inputClass =
+  "w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 outline-none focus:border-indigo-500 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100";
+
 export function UploadTestPage() {
   const navigate = useNavigate();
-  const [prompt, setPrompt] = useState(DEFAULT_AI_PROMPT);
-  const [promptUnlocked, setPromptUnlocked] = useState(false);
-  const [copied, setCopied] = useState(false);
-  const [markdown, setMarkdown] = useState("");
+  const [fileName, setFileName] = useState<string | null>(null);
+  const [csv, setCsv] = useState("");
+  const [title, setTitle] = useState("");
+  const [passPercent, setPassPercent] = useState("70");
   const [preview, setPreview] = useState<ParsePreviewResult | null>(null);
   const [checking, setChecking] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [prompt, setPrompt] = useState(DEFAULT_AI_PROMPT);
+  const [copied, setCopied] = useState(false);
 
-  async function copyPrompt() {
-    await navigator.clipboard.writeText(prompt);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 1500);
-  }
+  const buildUpload = (): TestUpload => ({ csv, title, description: null, passPercent: Number(passPercent) });
 
-  async function checkMarkdown() {
-    setError(null);
-    setChecking(true);
-    setPreview(null);
-    try {
-      const result = await parsePreview(markdown);
-      setPreview(result);
-    } catch (err) {
-      setError(apiErrorMessage(err, "Не удалось проверить файл."));
-    } finally {
+  // Re-validate whenever the file or the form fields change, so the admin
+  // never has to press a separate "check" button.
+  useEffect(() => {
+    if (!csv) {
       setChecking(false);
+      return;
     }
+    let cancelled = false;
+    setChecking(true);
+    const timer = setTimeout(async () => {
+      try {
+        const result = await parsePreview({ csv, title, description: null, passPercent: Number(passPercent) });
+        if (!cancelled) {
+          setPreview(result);
+          setError(null);
+        }
+      } catch (err) {
+        if (!cancelled) setError(apiErrorMessage(err, "Не удалось проверить файл."));
+      } finally {
+        if (!cancelled) setChecking(false);
+      }
+    }, 300);
+    return () => {
+      cancelled = true;
+      clearTimeout(timer);
+    };
+  }, [csv, title, passPercent]);
+
+  async function onFileChange(file: File | undefined) {
+    setPreview(null);
+    setError(null);
+    setCsv("");
+    setFileName(file?.name ?? null);
+    if (!file) return;
+
+    let text: string;
+    try {
+      text = new TextDecoder("utf-8", { fatal: true }).decode(await file.arrayBuffer());
+    } catch {
+      setError("Файл не в кодировке UTF-8. В Excel: «Сохранить как» → «CSV UTF-8 (разделитель — запятая)».");
+      return;
+    }
+    if (!title.trim()) setTitle(file.name.replace(/\.csv$/i, ""));
+    setCsv(text);
   }
 
   async function saveTest() {
     setError(null);
     setSaving(true);
     try {
-      const test = await createTest(markdown);
+      const test = await createTest(buildUpload());
       navigate(`/tests/${test.id}/participants`);
     } catch (err) {
       setError(apiErrorMessage(err, "Не удалось сохранить тест."));
@@ -49,104 +84,79 @@ export function UploadTestPage() {
     }
   }
 
-  const canSave = preview?.test && preview.issues.length === 0;
+  async function copyPrompt() {
+    await navigator.clipboard.writeText(prompt);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 1500);
+  }
+
+  const canSave = !checking && preview?.test && preview.issues.length === 0;
 
   return (
-    <div className="grid gap-8 lg:grid-cols-2">
+    <div className="mx-auto max-w-3xl space-y-6">
       <section className="rounded-lg border border-slate-200 bg-white p-6 shadow-sm dark:border-slate-800 dark:bg-slate-900">
-        <div className="mb-1 flex items-center justify-between gap-3">
-          <h2 className="text-lg font-semibold text-slate-900 dark:text-slate-100">1. Промпт для AI</h2>
-          {promptUnlocked ? (
-            <span className="whitespace-nowrap rounded-full bg-amber-50 px-2.5 py-1 text-xs font-medium text-amber-700 dark:bg-amber-500/10 dark:text-amber-300">
-              Режим редактирования
-            </span>
-          ) : (
-            <button
-              onClick={() => setPromptUnlocked(true)}
-              title="Изменить промпт"
-              className="whitespace-nowrap text-xs text-slate-400 hover:text-indigo-600 dark:text-slate-500 dark:hover:text-indigo-400"
-            >
-              ✎ Изменить
-            </button>
-          )}
-        </div>
-        <p className="mb-3 text-sm text-slate-500 dark:text-slate-400">
-          {promptUnlocked
-            ? "Отредактируйте текст, затем нажмите «Готово». Изменения останутся только в этой сессии."
-            : "Скопируйте и вставьте в ChatGPT/Claude вместе с материалом (лекция, конспект и т.д.), заберите готовый MD-ответ обратно сюда. Чтобы изменить сам промпт, нажмите «Изменить»."}
+        <h2 className="mb-1 text-lg font-semibold text-slate-900 dark:text-slate-100">Новый тест из CSV</h2>
+        <p className="mb-4 text-sm text-slate-500 dark:text-slate-400">
+          Файл в кодировке UTF-8, разделитель — запятая. Колонки: <code>раздел,вопрос,A,B,C,D,E,ответ</code>.
+          В «ответ» — буква правильного варианта, несколько — через запятую в кавычках: <code>"A,C"</code>.{" "}
+          <a href={TEMPLATE_URL} download className="text-indigo-600 hover:underline dark:text-indigo-400">
+            Скачать шаблон
+          </a>
         </p>
-        <textarea
-          value={prompt}
-          onChange={(e) => setPrompt(e.target.value)}
-          readOnly={!promptUnlocked}
-          rows={18}
-          className={`w-full rounded-md border p-3 font-mono text-xs outline-none ${
-            promptUnlocked
-              ? "border-slate-300 bg-white text-slate-900 focus:border-indigo-500 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100"
-              : "cursor-default border-slate-200 bg-slate-50 text-slate-600 dark:border-slate-800 dark:bg-slate-950/40 dark:text-slate-400"
-          }`}
-        />
-        <div className="mt-3 flex gap-3">
-          <button
-            onClick={copyPrompt}
-            className="rounded-md border border-slate-300 px-3 py-1.5 text-sm font-medium text-slate-700 hover:bg-slate-50 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800"
-          >
-            {copied ? "Скопировано ✓" : "Скопировать промпт"}
-          </button>
-          {promptUnlocked && (
-            <button
-              onClick={() => setPromptUnlocked(false)}
-              className="rounded-md bg-indigo-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-indigo-700 dark:bg-indigo-500 dark:hover:bg-indigo-400"
-            >
-              Готово
-            </button>
-          )}
-        </div>
-      </section>
 
-      <section className="rounded-lg border border-slate-200 bg-white p-6 shadow-sm dark:border-slate-800 dark:bg-slate-900">
-        <h2 className="mb-1 text-lg font-semibold text-slate-900 dark:text-slate-100">2. MD-файл теста</h2>
-        <p className="mb-3 text-sm text-slate-500 dark:text-slate-400">
-          Вставьте ответ AI сюда и проверьте перед сохранением.
-        </p>
-        <textarea
-          value={markdown}
-          onChange={(e) => {
-            setMarkdown(e.target.value);
-            setPreview(null);
-          }}
-          rows={18}
-          placeholder={"---\ntitle: ...\npass_percent: 70\n---\n\n## Q1 [Раздел]\n..."}
-          className="w-full rounded-md border border-slate-300 bg-white p-3 font-mono text-xs text-slate-900 outline-none focus:border-indigo-500 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100"
-        />
-        <div className="mt-3 flex gap-3">
-          <button
-            onClick={checkMarkdown}
-            disabled={!markdown.trim() || checking}
-            className="rounded-md border border-slate-300 px-3 py-1.5 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:opacity-50 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800"
-          >
-            {checking ? "Проверяем..." : "Проверить"}
-          </button>
+        <label className="flex cursor-pointer items-center gap-3 rounded-md border-2 border-dashed border-slate-300 p-4 hover:border-indigo-400 dark:border-slate-700 dark:hover:border-indigo-500">
+          <span className="rounded-md bg-indigo-600 px-3 py-1.5 text-sm font-medium text-white dark:bg-indigo-500">
+            Выбрать файл
+          </span>
+          <span className="truncate text-sm text-slate-600 dark:text-slate-300">
+            {fileName ?? "CSV-файл не выбран"}
+          </span>
+          <input
+            type="file"
+            accept=".csv,text/csv"
+            className="hidden"
+            onChange={(e) => {
+              void onFileChange(e.target.files?.[0]);
+              e.target.value = "";
+            }}
+          />
+        </label>
+
+        <div className="mt-4 grid gap-4 sm:grid-cols-[1fr_10rem]">
+          <label className="block">
+            <span className="mb-1 block text-sm font-medium text-slate-700 dark:text-slate-300">Название теста</span>
+            <input value={title} onChange={(e) => setTitle(e.target.value)} className={inputClass} />
+          </label>
+          <label className="block">
+            <span className="mb-1 block text-sm font-medium text-slate-700 dark:text-slate-300">Проходной балл, %</span>
+            <input
+              type="number"
+              min={1}
+              max={100}
+              value={passPercent}
+              onChange={(e) => setPassPercent(e.target.value)}
+              className={inputClass}
+            />
+          </label>
+        </div>
+
+        <div className="mt-4 flex items-center gap-3">
           <button
             onClick={saveTest}
             disabled={!canSave || saving}
-            className="rounded-md bg-indigo-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-indigo-700 disabled:opacity-40 dark:bg-indigo-500 dark:hover:bg-indigo-400"
+            className="rounded-md bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700 disabled:opacity-40 dark:bg-indigo-500 dark:hover:bg-indigo-400"
           >
             {saving ? "Сохраняем..." : "Сохранить тест"}
           </button>
+          {checking && <span className="text-sm text-slate-400">Проверяем файл...</span>}
         </div>
-        {!canSave && !saving && (
-          <p className="mt-2 text-xs text-slate-400 dark:text-slate-500">
-            {preview ? "Исправьте ошибки выше, затем нажмите «Проверить» ещё раз." : "Сначала нажмите «Проверить» — кнопка сохранения активируется после успешной проверки."}
-          </p>
-        )}
 
         {error && <p className="mt-3 text-sm text-red-600 dark:text-red-400">{error}</p>}
 
         {preview && preview.issues.length > 0 && (
           <div className="mt-4 rounded-md border border-red-200 bg-red-50 p-3 dark:border-red-900/50 dark:bg-red-500/10">
             <p className="mb-1 text-sm font-medium text-red-700 dark:text-red-300">
-              Формат нарушен ({preview.issues.length}):
+              Ошибки в файле ({preview.issues.length}) — исправьте и выберите файл заново:
             </p>
             <ul className="list-disc pl-5 text-sm text-red-700 dark:text-red-300">
               {preview.issues.map((issue, idx) => (
@@ -175,6 +185,28 @@ export function UploadTestPage() {
           </div>
         )}
       </section>
+
+      <details className="rounded-lg border border-slate-200 bg-white p-6 shadow-sm dark:border-slate-800 dark:bg-slate-900">
+        <summary className="cursor-pointer text-sm font-medium text-slate-700 dark:text-slate-300">
+          Нет CSV? Сгенерировать через AI
+        </summary>
+        <p className="my-3 text-sm text-slate-500 dark:text-slate-400">
+          Скопируйте промпт в ChatGPT/Claude вместе с материалом (лекция, конспект и т.д.), скачайте готовый
+          CSV-файл и загрузите его выше. Промпт можно отредактировать.
+        </p>
+        <textarea
+          value={prompt}
+          onChange={(e) => setPrompt(e.target.value)}
+          rows={14}
+          className="w-full rounded-md border border-slate-300 bg-white p-3 font-mono text-xs text-slate-900 outline-none focus:border-indigo-500 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100"
+        />
+        <button
+          onClick={copyPrompt}
+          className="mt-3 rounded-md border border-slate-300 px-3 py-1.5 text-sm font-medium text-slate-700 hover:bg-slate-50 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800"
+        >
+          {copied ? "Скопировано ✓" : "Скопировать промпт"}
+        </button>
+      </details>
     </div>
   );
 }

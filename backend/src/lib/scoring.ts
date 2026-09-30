@@ -51,7 +51,11 @@ export function scoreAttempt(questions: ScoredQuestion[], passPercent: number): 
     totalCount,
     correctCount,
     scorePercent,
-    passed: scorePercent >= passPercent,
+    // Compare the exact ratio, not the rounded percentage (69.996 must not pass 70).
+    // correctCount*100 is an exact integer; the epsilon absorbs float noise in
+    // passPercent*totalCount (e.g. 33.33 * 3).
+    passed:
+      totalCount === 0 ? passPercent <= 0 : correctCount * 100 >= passPercent * totalCount - 1e-9,
     sectionStats,
     perQuestion,
   };
