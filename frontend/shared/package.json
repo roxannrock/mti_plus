@@ -1,0 +1,17 @@
+{
+  "name": "@mti/shared",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "description": "Code shared by the admin panel and the student cabinet, consumed as TypeScript source (no build step).",
+  "exports": {
+    ".": "./src/index.ts",
+    "./theme.css": "./src/theme.css"
+  },
+  "peerDependencies": {
+    "axios": "^1.20.0",
+    "react": "^19.2.8",
+    "react-dom": "^19.2.8",
+    "react-router-dom": "^7.18.4"
+  }
+}

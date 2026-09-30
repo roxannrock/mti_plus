@@ -1,5 +1,5 @@
-.PHONY: help install install-backend install-admin install-user \
-	dev build typecheck migrate makemigration seed db-up db-down db-logs status clean
+.PHONY: help install install-backend install-frontend \
+	dev build typecheck test migrate makemigration seed seed-students db-up db-down db-logs status clean
 
 .DEFAULT_GOAL := help
 
@@ -12,16 +12,13 @@ help: ## Show this help
 	@grep -E '^[a-zA-Z0-9_-]+:.*?## .*$$' $(MAKEFILE_LIST) | sort | awk 'BEGIN {FS = ":.*?## "}; {printf "  \033[36m%-16s\033[0m %s\n", $$1, $$2}'
 	@echo ""
 
-install: install-backend install-admin install-user ## Install dependencies everywhere (backend + both frontends)
+install: install-backend install-frontend ## Install dependencies everywhere (backend + both frontends)
 
 install-backend: ## Install backend dependencies
 	cd backend && npm install
 
-install-admin: ## Install admin frontend dependencies
-	cd frontend/admin && npm install
-
-install-user: ## Install student frontend dependencies
-	cd frontend/user && npm install
+install-frontend: ## Install admin + student + shared deps (one npm workspace in frontend/)
+	cd frontend && npm install
 
 db-up: ## Start the local dev PostgreSQL container
 	$(MAKE) -C backend db-up
@@ -41,6 +38,11 @@ makemigration: ## Create a new migration from schema changes (usage: make makemi
 seed: ## Seed the bootstrap admin account from backend/.env
 	$(MAKE) -C backend seed
 
+# abspath: `make -C backend` changes directory, so relative paths are resolved here first.
+seed-students: ## Create students from CSV (usage: make seed-students file=students.csv [out=credentials.csv])
+	@test -n "$(file)" || { echo 'Usage: make seed-students file=students.csv [out=credentials.csv]'; exit 1; }
+	$(MAKE) -C backend seed-students file="$(abspath $(file))" $(if $(out),out="$(abspath $(out))")
+
 dev: db-up ## Start db + backend + both frontends together (one Ctrl+C stops all)
 	@trap 'echo; echo "Stopping..."; kill 0' EXIT INT TERM; \
 	(cd backend && npm run dev) & \
@@ -52,6 +54,9 @@ build: ## Production build of backend + both frontends
 	cd backend && npm run build
 	cd frontend/admin && npm run build
 	cd frontend/user && npm run build
+
+test: db-up ## Run the backend test suite (separate mti_exam_test database)
+	$(MAKE) -C backend test
 
 typecheck: ## Type-check backend + both frontends
 	cd backend && npm run typecheck
@@ -69,3 +74,4 @@ clean: ## Remove node_modules and build output everywhere
 	$(MAKE) -C backend clean
 	$(MAKE) -C frontend/admin clean
 	$(MAKE) -C frontend/user clean
+	rm -rf frontend/node_modules

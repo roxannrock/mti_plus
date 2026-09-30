@@ -8,17 +8,15 @@ import bcrypt from "bcryptjs";
 import { prisma } from "./db/prisma";
 
 async function seedUser(login: string, password: string, fullName: string, role: "ADMIN" | "STUDENT") {
-  const existing = await prisma.user.findUnique({ where: { login } });
-  if (existing) {
-    console.log(`${role} ${login} already exists, skipping.`);
-    return;
-  }
-
+  // Upsert so re-running the seed resets the password to whatever is in
+  // .env now, without touching the user's attempts.
   const passwordHash = await bcrypt.hash(password, 12);
-  const user = await prisma.user.create({
-    data: { login, passwordHash, fullName, role },
+  await prisma.user.upsert({
+    where: { login },
+    create: { login, passwordHash, fullName, role },
+    update: { passwordHash, fullName, role },
   });
-  console.log(`Created ${role.toLowerCase()} ${user.login}`);
+  console.log(`Seeded ${role.toLowerCase()} ${login}`);
 }
 
 async function main() {

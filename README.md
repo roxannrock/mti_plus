@@ -1,7 +1,7 @@
 # MTI+ Exam Platform
 
 Платформа для приёма экзаменов: админ загружает учебный материал →
-конвертирует его в MD-тест по заданному шаблону → студенты проходят тест
+конвертирует его в CSV-тест по заданному шаблону → студенты проходят тест
 и видят разбивку результата по разделам экзамена.
 
 ## Структура репозитория
@@ -11,20 +11,26 @@ mti-exam-platform/
   Makefile              команды верхнего уровня (install/dev/build/status/...)
   backend/               Express + TypeScript + Prisma + PostgreSQL API
     Makefile
-  frontend/
+  frontend/              npm workspace: один node_modules на все три пакета
+    package.json         корень workspace (shared + admin + user)
+    shared/              @mti/shared — общий код обоих фронтендов (TS-исходники,
+                         без сборки): axios-клиент, авторизация, тема, страница входа
     admin/               React (Vite) — панель администратора
       Makefile
     user/                React (Vite) — кабинет студента
       Makefile
   docs/
-    md-template-spec.md          формат MD-теста
+    csv-template-spec.md         формат CSV-теста
     admin-prompt-template.md     промпт для генерации теста через AI
-    example-comptia-a-plus.md    пример готового теста (90 вопросов)
+    example-comptia-a-plus.csv   пример готового теста (90 вопросов)
 ```
 
-Каждый из трёх пакетов (`backend`, `frontend/admin`, `frontend/user`) —
-самостоятельное npm-приложение со своими зависимостями и своим `Makefile`.
-Корневой `Makefile` просто дирижирует всеми тремя.
+`backend` — самостоятельное npm-приложение. `frontend/admin` и
+`frontend/user` — два Vite-приложения в одном npm workspace (`frontend/`):
+зависимости ставятся одной командой `npm install` в `frontend/` и лежат
+в общем `frontend/node_modules`, а общий код (API-клиент, вход, тема)
+живёт в `frontend/shared` и правится в одном месте. У каждого приложения
+свой `Makefile`; корневой `Makefile` дирижирует всеми.
 
 ## Требования
 
@@ -38,7 +44,7 @@ mti-exam-platform/
 git clone <repo-url> mti-exam-platform
 cd mti-exam-platform
 
-make install     # npm install в backend + frontend/admin + frontend/user
+make install     # npm install в backend + в frontend/ (workspace: shared, admin, user)
 
 cp backend/.env.example backend/.env
 cp frontend/admin/.env.example frontend/admin/.env
@@ -76,6 +82,7 @@ make status
 |-----------------------|-----------------------------------------------------|
 | `make build`          | Продакшн-сборка backend + обоих фронтендов          |
 | `make typecheck`      | Проверка типов во всех трёх пакетах                 |
+| `make test`           | Тесты backend (vitest); нужна запущенная dev-база, работают с отдельной БД `mti_exam_test` |
 | `make makemigration name="add_x"` | Новая Prisma-миграция после правки schema.prisma |
 | `make db-down`        | Остановить dev-базу                                 |
 | `make clean`          | Снести `node_modules`/`dist` везде                  |
@@ -122,19 +129,27 @@ Vite и ts-node-dev не выводят новый prompt в терминал, �
 
 Если backend отвечает (`make status` показывает 200), но конкретное
 действие падает с `500 Internal Server Error` (например, тест не
-сохраняется после успешной проверки MD) — почти наверняка не
+сохраняется после успешной проверки CSV) — почти наверняка не
 перезапущен backend после изменения `schema.prisma`, см. раздел про
 `make migrate` выше.
 
 ## Как это работает
 
-1. Админ логинится в `frontend/admin`, открывает **Upload Material**,
-   копирует промпт, вставляет его вместе с учебным материалом в
-   ChatGPT/Claude, получает MD-файл — см. `docs/admin-prompt-template.md`.
-2. Вставляет MD в форму загрузки → сайт валидирует формат
-   (`docs/md-template-spec.md`) и показывает предпросмотр с ошибками.
+1. Админ логинится в `frontend/admin`, открывает **Upload Material** и
+   выбирает CSV-файл с вопросами (UTF-8, запятые — `docs/csv-template-spec.md`).
+   CSV можно сделать в Excel/Google Sheets по шаблону или сгенерировать
+   через ChatGPT/Claude — см. `docs/admin-prompt-template.md`.
+2. Сайт сразу проверяет файл и показывает предпросмотр или ошибки с
+   номерами строк.
 3. Сохраняет и публикует тест.
-4. Студент в `frontend/user` регистрируется, выбирает опубликованный
+   Учётки студентов админ заводит на странице **Студенты**: по одному или
+   импортом CSV `логин,фио,пароль` (шаблон — там же; пустой пароль →
+   сгенерируется случайный). Сразу после импорта можно скачать CSV с
+   логинами и паролями — пароли показываются только один раз, потом их
+   можно лишь сбросить. То же из консоли:
+   `make seed-students file=students.csv [out=credentials.csv]`.
+   Существующие логины пропускаются, их пароли не меняются.
+4. Студент в `frontend/user` входит под выданным логином, выбирает опубликованный
    тест, проходит его (радио-кнопки для вопросов с одним правильным
    ответом, чекбоксы — если несколько), получает итоговый процент и
    разбивку по разделам.
@@ -224,25 +239,51 @@ cd /opt/mti-exam-platform
 
 ### 6. База данных
 
+Пароль БД в репозитории (`mti_dev_pw`) — только для dev. На сервере
+придумайте свой и передайте его при **первом** запуске контейнера (потом
+пароль хранится в томе контейнера, и `make db-up` просто стартует его):
+
 ```bash
-cd /opt/mti-exam-platform/backend
-make db-up   # поднимет Postgres в Docker на порту 5433, как в dev
+cd /opt/mti-exam-platform
+DB_PASSWORD=$(openssl rand -hex 24)   # hex — безопасен внутри DATABASE_URL
+echo "$DB_PASSWORD"                   # сохраните: он нужен в шаге 7
+make db-up DB_PASSWORD="$DB_PASSWORD"
 ```
+
+Контейнер публикует порт только на `127.0.0.1:5433` (Docker обходит ufw,
+поэтому наружу порт не открываем) и перезапускается сам после
+перезагрузки сервера (`--restart unless-stopped`).
 
 ### 7. `backend/.env` — боевые значения
 
 ```bash
+cd /opt/mti-exam-platform
 cp backend/.env.example backend/.env
 ```
 
 Отредактируйте `backend/.env`:
 
-- `DATABASE_URL` — оставьте как в `.env.example`, если используете
-  `make db-up` (порт 5433), либо укажите свою СУБД.
+- `DATABASE_URL` — если используете `make db-up`, замените в строке из
+  `.env.example` только пароль `mti_dev_pw` на пароль из шага 6:
+  `postgresql://mti:<пароль>@localhost:5433/mti_exam?schema=public`.
+  Либо укажите свою СУБД.
+- `HOST` — оставьте `127.0.0.1`: backend доступен только через Nginx. Если
+  открыть `:4000` наружу, клиент сможет подделать `X-Forwarded-For` и
+  обойти ограничение попыток входа.
+- `TRUST_PROXY` — оставьте пустым: в production это `1` (один Nginx перед
+  backend). Меняйте, только если перед Nginx стоит ещё один прокси/балансировщик.
 - `JWT_SECRET` — сгенерируйте случайную строку, **не** оставляйте
   dev-значение: `openssl rand -base64 48`
 - `CORS_ORIGINS` — реальные домены обоих фронтендов, например
-  `https://app.example.com,https://admin.example.com`
+  `https://app.example.com,https://admin.example.com`. **Обязателен в
+  production**: с `NODE_ENV=production` (его задаёт systemd-юнит, шаг 9)
+  backend с пустым `CORS_ORIGINS` не стартует, а `localhost`/`127.0.0.1`
+  там автоматически не разрешаются (это есть только в dev).
+- `JWT_EXPIRES_IN` — срок жизни токена входа, по умолчанию `12h`. Токен
+  хранится в `localStorage` браузера, поэтому длинный срок не ставьте:
+  чем короче, тем меньше окно, если токен утечёт. Удалённый пользователь
+  или сменённая роль действуют сразу — backend сверяет пользователя с
+  базой на каждом запросе.
 - `SEED_ADMIN_LOGIN` / `SEED_ADMIN_PASSWORD` / `SEED_ADMIN_NAME` — свои,
   пароль — надёжный (это единственный админ, создаваемый автоматически)
 
@@ -250,10 +291,10 @@ cp backend/.env.example backend/.env
 
 ```bash
 cd /opt/mti-exam-platform
-make install
+make install   # в backend заодно генерирует Prisma-клиент (postinstall)
 make migrate
 make seed
-make build     # собирает backend/dist + frontend/admin/dist + frontend/user/dist
+make build     # собирает backend/dist (с prisma generate) + frontend/admin/dist + frontend/user/dist
 ```
 
 ### 9. Backend как systemd-сервис
@@ -274,6 +315,7 @@ ExecStart=/usr/bin/node dist/index.js
 Restart=on-failure
 User=<ваш_пользователь>
 EnvironmentFile=/opt/mti-exam-platform/backend/.env
+Environment=NODE_ENV=production
 
 [Install]
 WantedBy=multi-user.target
@@ -286,6 +328,43 @@ sudo systemctl status mti-backend   # должен быть active (running), с
 
 ### 10. Nginx — фронтенды + прокси на backend
 
+Сначала — заголовки безопасности для статики. Токен входа лежит в
+`localStorage`, поэтому главная защита от его кражи — не дать выполниться
+чужому JS (XSS): строгий `Content-Security-Policy` разрешает скрипты
+только с собственного домена. Единственный inline-скрипт — применение
+темы до первой отрисовки в `index.html` — разрешается по его SHA-256
+хэшу, без `'unsafe-inline'`. Хэш зависит от текста скрипта, поэтому
+сниппеты генерируются из собранного `dist/index.html` (сборка — шаг 8)
+и **перегенерируются этой же командой после каждого `make build`**
+(см. «Обновление после деплоя»):
+
+```bash
+cd /opt/mti-exam-platform
+for app in user admin; do
+  hashes=$(python3 - "frontend/$app/dist/index.html" <<'PY'
+import base64, hashlib, re, sys
+html = open(sys.argv[1], encoding="utf-8").read()
+for body in re.findall(r"<script(?![^>]*\bsrc=)[^>]*>(.*?)</script>", html, re.S):
+    print("'sha256-" + base64.b64encode(hashlib.sha256(body.encode()).digest()).decode() + "'", end=" ")
+PY
+)
+  sudo tee /etc/nginx/snippets/mti-security-$app.conf > /dev/null <<EOF
+add_header Content-Security-Policy "default-src 'self'; script-src 'self' $hashes; style-src 'self'; img-src 'self' data:; font-src 'self'; connect-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'" always;
+add_header X-Content-Type-Options "nosniff" always;
+add_header Referrer-Policy "no-referrer" always;
+add_header X-Frame-Options "DENY" always;
+EOF
+done
+```
+
+`connect-src 'self'` подходит, когда `VITE_API_URL` указывает на тот же
+домен, что и фронтенд (как в шаге 11: `https://app.example.com/api`).
+Если API вынесен на другой домен — допишите его origin в `connect-src`
+(например, `connect-src 'self' https://api.example.com`), иначе браузер
+заблокирует запросы к API.
+
+Сам сайт:
+
 ```bash
 sudo tee /etc/nginx/sites-available/mti-exam-platform > /dev/null <<'EOF'
 server {
@@ -293,24 +372,37 @@ server {
     server_name app.example.com;
     root /opt/mti-exam-platform/frontend/user/dist;
     index index.html;
-    location / { try_files $uri $uri/ /index.html; }
+    location / {
+        include snippets/mti-security-user.conf;
+        try_files $uri $uri/ /index.html;
+    }
     location /api/ {
         proxy_pass http://127.0.0.1:4000/api/;
         proxy_set_header Host $host;
         proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_read_timeout 120s;   # импорт студентов из CSV бывает долгим
     }
 }
 
 server {
     listen 80;
     server_name admin.example.com;
-    root /opt/mti-exam-platform/frontend/admin/dist;
-    index index.html;
-    location / { try_files $uri $uri/ /index.html; }
+    # Админка собрана под подпуть /admin/ (base в vite.config.ts)
+    location = / { return 302 /admin/; }
+    location /admin/ {
+        alias /opt/mti-exam-platform/frontend/admin/dist/;
+        include snippets/mti-security-admin.conf;
+        try_files $uri $uri/ /admin/index.html;
+    }
     location /api/ {
         proxy_pass http://127.0.0.1:4000/api/;
         proxy_set_header Host $host;
         proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_read_timeout 120s;   # импорт студентов из CSV бывает долгим
     }
 }
 EOF
@@ -318,6 +410,13 @@ EOF
 sudo ln -s /etc/nginx/sites-available/mti-exam-platform /etc/nginx/sites-enabled/
 sudo nginx -t && sudo systemctl reload nginx
 ```
+
+`X-Forwarded-For` обязателен: backend доверяет ровно одному прокси
+(`trust proxy`) и по этому заголовку узнаёт реальный IP клиента — на нём
+держится ограничение попыток входа (10 неудачных попыток на IP+логин за
+15 минут, затем `429`; счётчик в памяти процесса и сбрасывается при
+рестарте backend). Заголовки безопасности для самого API (`/api/`)
+выставляет backend (helmet), в Nginx их для `/api/` дублировать не нужно.
 
 Проксирование `/api/` в Nginx — подстраховка; на практике фронтенды
 ходят напрямую по `VITE_API_URL`, который прописывается **во время
@@ -353,11 +452,17 @@ curl -s https://app.example.com/api/health
 ```bash
 cd /opt/mti-exam-platform
 git pull
-make install
+make install   # + prisma generate (postinstall)
 make migrate
-make build
+make build     # backend build тоже заново генерирует Prisma-клиент
 sudo systemctl restart mti-backend
 ```
+
+Если в обновлении менялся `index.html` какого-либо фронтенда (inline-скрипт
+темы), перегенерируйте CSP-сниппеты командой из шага 10 и выполните
+`sudo nginx -t && sudo systemctl reload nginx` — иначе браузер заблокирует
+скрипт со старым хэшем (тема будет мигать при загрузке). Выполнять эту
+команду после каждого обновления безопасно.
 
 `make migrate` использует `prisma migrate deploy` — безопасно на боевой
 базе, применяет только новые миграции, ничего не спрашивает интерактивно.

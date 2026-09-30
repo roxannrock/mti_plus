@@ -1,38 +1,9 @@
-import axios from "axios";
+import { createApiClient } from "@mti/shared";
 
-const API_URL = import.meta.env.VITE_API_URL as string;
+export { apiErrorMessage } from "@mti/shared";
 
-if (!API_URL) {
-  throw new Error("VITE_API_URL is not set. Add it to frontend/admin/.env");
-}
+// Keep the token key stable — renaming it would log out every admin.
+// mti_admin_user was a cached user object nobody read; it's deleted on sight.
+export const SESSION_KEYS = { tokenKey: "mti_admin_token", legacyKeys: ["mti_admin_user"] };
 
-export const api = axios.create({ baseURL: API_URL });
-
-api.interceptors.request.use((config) => {
-  const token = localStorage.getItem("mti_admin_token");
-  if (token) {
-    config.headers.Authorization = `Bearer ${token}`;
-  }
-  return config;
-});
-
-api.interceptors.response.use(
-  (res) => res,
-  (error) => {
-    if (error.response?.status === 401) {
-      localStorage.removeItem("mti_admin_token");
-      localStorage.removeItem("mti_admin_user");
-      if (window.location.pathname !== "/admin/login") {
-        window.location.href = "/admin/login";
-      }
-    }
-    return Promise.reject(error);
-  },
-);
-
-export function apiErrorMessage(error: unknown, fallback = "Что-то пошло не так."): string {
-  if (axios.isAxiosError(error)) {
-    return error.response?.data?.error ?? fallback;
-  }
-  return fallback;
-}
+export const api = createApiClient(SESSION_KEYS);

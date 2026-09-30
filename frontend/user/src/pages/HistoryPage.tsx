@@ -1,7 +1,9 @@
 import { useEffect, useState } from "react";
+import { Link } from "react-router-dom";
 import type { AttemptHistoryItem } from "../types";
 import { listHistory } from "../api/attempts";
 import { apiErrorMessage } from "../api/client";
+import { sectionBarClass } from "../components/sectionBar";
 
 export function HistoryPage() {
   const [history, setHistory] = useState<AttemptHistoryItem[] | null>(null);
@@ -23,9 +25,10 @@ export function HistoryPage() {
 
       <div className="space-y-4">
         {history?.map((attempt) => (
-          <div
+          <Link
             key={attempt.id}
-            className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900"
+            to={`/results/${attempt.id}`}
+            className="block rounded-lg border border-slate-200 bg-white p-5 shadow-sm transition-colors hover:border-indigo-300 dark:border-slate-800 dark:bg-slate-900 dark:hover:border-indigo-500/50"
           >
             <div className="flex items-start justify-between">
               <div>
@@ -59,7 +62,7 @@ export function HistoryPage() {
                     </div>
                     <div className="h-1.5 rounded-full bg-slate-100 dark:bg-slate-800">
                       <div
-                        className={`h-1.5 rounded-full ${pct >= 70 ? "bg-emerald-500" : pct >= 40 ? "bg-amber-500" : "bg-red-500"}`}
+                        className={`h-1.5 rounded-full ${sectionBarClass(pct, attempt.passPercentAtFinish ?? attempt.test.passPercent)}`}
                         style={{ width: `${pct}%` }}
                       />
                     </div>
@@ -67,7 +70,7 @@ export function HistoryPage() {
                 );
               })}
             </div>
-          </div>
+          </Link>
         ))}
       </div>
     </div>

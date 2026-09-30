@@ -1,10 +1,3 @@
-export interface AuthUser {
-  id: string;
-  login: string;
-  fullName: string;
-  role: "ADMIN" | "STUDENT";
-}
-
 export interface Option {
   key: string;
   text: string;
@@ -25,14 +18,33 @@ export interface TestSummary {
   description: string | null;
   passPercent: number;
   isPublished: boolean;
+  maxAttempts: number | null;
+  timeLimitMinutes: number | null;
+  archivedAt: string | null;
   createdAt: string;
   createdBy: { fullName: string };
+  // attempts = all incl. in progress (decides delete vs archive)
   _count: { questions: number; attempts: number };
+  finishedAttempts: number;
 }
 
 export interface TestDetail extends TestSummary {
-  mdSource: string;
   questions: Question[];
+}
+
+export interface TestSettings {
+  title?: string;
+  description?: string | null;
+  passPercent?: number;
+  maxAttempts?: number | null;
+  timeLimitMinutes?: number | null;
+}
+
+export interface QuestionUpdate {
+  section: string;
+  prompt: string;
+  options: Option[];
+  correctKeys: string[];
 }
 
 export interface ParsedQuestionPreview {
@@ -60,6 +72,7 @@ export interface SectionStat {
 
 export interface Participant {
   id: string;
+  attemptNumber: number;
   startedAt: string;
   finishedAt: string;
   totalCount: number;
@@ -70,12 +83,16 @@ export interface Participant {
   student: { id: string; fullName: string; login: string };
 }
 
-export interface ParticipantDetail extends Participant {
-  test?: { title: string; passPercent: number };
+export interface ParticipantDetail extends Omit<Participant, "attemptNumber"> {
+  // Current pass mark; passPercentAtFinish is what the attempt was scored against.
+  test: { title: string; passPercent: number };
+  passPercentAtFinish: number | null;
   answers: {
     id: string;
     selectedKeys: string[];
     isCorrect: boolean;
+    // Correct keys at scoring time (null for rows scored before snapshots existed).
+    correctKeysAtFinish: string[] | null;
     question: Question;
   }[];
 }

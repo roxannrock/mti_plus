@@ -1,5 +1,5 @@
 // Prisma schema for the MTI+ exam platform.
-// Sections/domains are free-form strings extracted from the uploaded MD file,
+// Sections/domains are free-form strings extracted from the uploaded CSV file,
 // never hardcoded here, so the same schema works for any subject (CompTIA,
 // cybersecurity, etc.) without code changes.
 
@@ -23,6 +23,7 @@ model User {
   passwordHash String
   fullName     String
   role         Role
+  tokenVersion Int      @default(0) // bumped on password reset: tokens signed with an older version are rejected
   createdAt    DateTime @default(now())
 
   createdTests Test[]     @relation("TestAuthor")
@@ -36,8 +37,11 @@ model Test {
   title         String
   description   String?
   passPercent   Float // e.g. 70 = must score >= 70% to pass
-  mdSource      String   @db.Text // original MD uploaded by admin, kept for audit/re-edit
+  source        String   @db.Text // original CSV (older tests: MD) uploaded by admin, kept for audit — never sent to students
   isPublished   Boolean  @default(false)
+  maxAttempts      Int? // null = unlimited finished attempts per student
+  timeLimitMinutes Int? // null = no time limit
+  archivedAt    DateTime? // set instead of deleting a test that already has attempts
   createdById   String
   createdBy     User     @relation("TestAuthor", fields: [createdById], references: [id])
   createdAt     DateTime @default(now())
@@ -53,8 +57,8 @@ model Question {
   id           String  @id @default(cuid())
   testId       String
   test         Test    @relation(fields: [testId], references: [id], onDelete: Cascade)
-  order        Int // position within the test, taken from the MD file
-  section      String // domain/topic tag, e.g. "Networking" — free text from MD
+  order        Int // position within the test, taken from the CSV file
+  section      String // domain/topic tag, e.g. "Networking" — free text from CSV
   prompt       String  @db.Text
   options      Json // [{ key: "A", text: "..." }, ...]
   correctKeys  Json // ["A"] or ["A","C"] for multi-select
@@ -72,11 +76,14 @@ model Attempt {
   studentId    String
   student      User      @relation(fields: [studentId], references: [id])
   startedAt    DateTime  @default(now())
+  deadlineAt   DateTime? // startedAt + test time limit, fixed when the attempt starts
+  draftAnswers Json? // { [questionId]: ["A"] } autosaved while in progress; scored if time runs out
   finishedAt   DateTime?
   totalCount   Int? // total questions, set on finish
   correctCount Int? // correct answers, set on finish
   scorePercent Float? // correctCount / totalCount * 100
   passed       Boolean?
+  passPercentAtFinish Float? // test's pass mark when this attempt was scored (it can be edited later)
   sectionStats Json? // { "Networking": { correct: 5, total: 8 }, ... }
 
   answers AttemptAnswer[]
@@ -93,6 +100,7 @@ model AttemptAnswer {
   questionId  String
   question    Question @relation(fields: [questionId], references: [id], onDelete: Cascade)
   selectedKeys Json // keys the student picked, e.g. ["B"]
+  correctKeysAtFinish Json? // question's correct keys when scored (the question can be edited later)
   isCorrect   Boolean
 
   @@unique([attemptId, questionId])
